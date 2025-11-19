@@ -1,0 +1,76 @@
+<!-- templates/admin/users.html -->
+{% extends "admin/base.html" %}
+{% block page_title %}Users{% endblock %}
+{% block content %}
+<div class="table-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Daftar Users</h5>
+        <form class="d-flex" method="GET">
+            <input type="text" class="form-control me-2" name="search" placeholder="Cari nomor..." value="{{ search }}">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>No. HP</th>
+                    <th>First Interaction</th>
+                    <th>Last Interaction</th>
+                    <th>Total Messages</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users.items %}
+                <tr>
+                    <td>{{ user.phone_number }}</td>
+                    <td>{{ user.first_interaction.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ user.last_interaction.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td><span class="badge bg-primary">{{ user.total_messages }}</span></td>
+                    <td>
+                        <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="btn btn-sm btn-info">
+                            <i class="bi bi-eye"></i> Detail
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if users.pages > 1 %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not users.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ users.prev_num }}{% if search %}&search={{ search }}{% endif %}">Previous</a>
+            </li>
+            {% for page in users.iter_pages() %}
+                {% if page %}
+                <li class="page-item {% if page == users.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ page }}{% if search %}&search={{ search }}{% endif %}">{{ page }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not users.has_next %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ users.next_num }}{% if search %}&search={{ search }}{% endif %}">Next</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+

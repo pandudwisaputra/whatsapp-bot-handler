@@ -1,0 +1,171 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'Edit' if admin else 'Tambah' }} Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-4">
+        <h2><i class="bi bi-person-plus"></i> {{ 'Edit' if admin else 'Tambah' }} Admin</h2>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <form method="POST" id="adminForm">
+                <div class="card shadow mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-person-badge"></i> Informasi Admin
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ admin.username if admin else '' }}" 
+                                   placeholder="Username untuk login" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ admin.email if admin else '' }}" 
+                                   placeholder="email@example.com" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                Password 
+                                {% if not admin %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   placeholder="{% if admin %}Kosongkan jika tidak ingin mengubah{% else %}Masukkan password{% endif %}" 
+                                   {% if not admin %}required{% endif %}>
+                            {% if admin %}
+                                <small class="text-muted">Kosongkan jika tidak ingin mengubah password</small>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role <span class="text-danger">*</span></label>
+                            <select class="form-select" id="role" name="role" required>
+                                <option value="admin" {% if admin and admin.role == 'admin' %}selected{% endif %}>
+                                    Admin
+                                </option>
+                                <option value="super_admin" {% if admin and admin.role == 'super_admin' %}selected{% endif %}>
+                                    Super Admin
+                                </option>
+                            </select>
+                            <small class="text-muted">
+                                <strong>Admin:</strong> Kelola konten<br>
+                                <strong>Super Admin:</strong> Kelola konten + kelola admin
+                            </small>
+                        </div>
+
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" 
+                                   {% if not admin or admin.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                <strong>Aktif</strong> - Admin dapat login
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin_mgmt.admin_list') }}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Batal
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Simpan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sidebar Info -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-3">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-info-circle"></i> Informasi
+                </div>
+                <div class="card-body">
+                    <h6><i class="bi bi-shield-check"></i> Perbedaan Role</h6>
+                    <ul class="small">
+                        <li><strong>Admin:</strong> Dapat mengelola kategori, layanan, dan konten</li>
+                        <li><strong>Super Admin:</strong> Memiliki akses admin + dapat mengelola user admin</li>
+                    </ul>
+
+                    {% if admin %}
+                    <hr>
+                    <h6><i class="bi bi-clock-history"></i> Riwayat</h6>
+                    <ul class="small mb-0">
+                        <li>Dibuat: {{ admin.created_at.strftime('%d/%m/%Y %H:%M') }}</li>
+                        <li>Update: {{ admin.updated_at.strftime('%d/%m/%Y %H:%M') }}</li>
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <i class="bi bi-exclamation-triangle"></i> Peringatan
+                </div>
+                <div class="card-body">
+                    <ul class="small mb-0">
+                        <li>Username dan email harus unik</li>
+                        <li>Password minimal 6 karakter</li>
+                        <li>Super Admin dapat mengelola semua admin</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        document.getElementById('adminForm').submit();
+    }
+    
+    if (e.key === 'Escape') {
+        if (confirm('Batalkan perubahan?')) {
+            window.location.href = '{{ url_for("admin_mgmt.admin_list") }}';
+        }
+    }
+});
+
+// Password validation
+document.getElementById('adminForm').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const isEdit = {{ 'true' if admin else 'false' }};
+    
+    if (!isEdit && password.length < 6) {
+        e.preventDefault();
+        alert('Password minimal 6 karakter!');
+        document.getElementById('password').focus();
+    }
+    
+    if (isEdit && password && password.length < 6) {
+        e.preventDefault();
+        alert('Password minimal 6 karakter!');
+        document.getElementById('password').focus();
+    }
+});
+</script>
+{% endblock %}

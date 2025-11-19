@@ -1,0 +1,342 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'Edit' if layanan else 'Tambah' }} Layanan{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-4">
+        <h2><i class="bi bi-file-text"></i> {{ 'Edit' if layanan else 'Tambah' }} Layanan</h2>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" id="layananForm">
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Basic Info Card -->
+                <div class="card shadow mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-info-circle"></i> Informasi Dasar
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="kategori_id" class="form-label">Kategori <span class="text-danger">*</span></label>
+                            <select class="form-select" id="kategori_id" name="kategori_id" required>
+                                <option value="">-- Pilih Kategori --</option>
+                                {% for kat in kategoris %}
+                                <option value="{{ kat.id }}" 
+                                    {% if layanan and layanan.kategori_id == kat.id %}selected{% endif %}>
+                                    {{ kat.icon }} {{ kat.nama }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="judul" class="form-label">Judul Layanan <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="judul" name="judul" rows="3" required>{{ layanan.judul if layanan else '' }}</textarea>
+                            <small class="form-text text-muted">Judul lengkap layanan</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="jangka_waktu" class="form-label">Jangka Waktu Pelayanan</label>
+                                <input type="text" class="form-control" id="jangka_waktu" name="jangka_waktu" 
+                                       value="{{ layanan.jangka_waktu if layanan else '' }}" 
+                                       placeholder="contoh: 40 menit sejak berkas lengkap">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="biaya" class="form-label">Biaya/Tarif</label>
+                                <input type="text" class="form-control" id="biaya" name="biaya" 
+                                       value="{{ layanan.biaya if layanan else '' }}" 
+                                       placeholder="contoh: Tidak ada biaya/tarif">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="qrcode" class="form-label">
+                                Link Pendukung
+                                <span class="badge bg-secondary">Opsional</span>
+                            </label>
+                            <input type="url" class="form-control" id="qrcode" name="qrcode" 
+                                   value="{{ layanan.qrcode if layanan and layanan.qrcode else '' }}" 
+                                   placeholder="https://sitren.kemenag.go.id/... (Opsional)">
+                            <small class="form-text text-muted">
+                                <i class="bi bi-info-circle"></i> 
+                                Link pendukung. Kosongkan jika tidak ada.
+                            </small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="urutan" class="form-label">Urutan</label>
+                                <input type="number" class="form-control" id="urutan" name="urutan" 
+                                       value="{{ layanan.urutan if layanan else 0 }}" 
+                                       min="0" max="100">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" 
+                                           {% if not layanan or layanan.is_active %}checked{% endif %}>
+                                    <label class="form-check-label" for="is_active">
+                                        <strong>Aktif</strong> - Layanan ditampilkan di menu
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Persyaratan Card -->
+                <div class="card shadow mb-3">
+                    <div class="card-header bg-success text-white">
+                        <i class="bi bi-clipboard-check"></i> Persyaratan
+                    </div>
+                    <div class="card-body">
+                        <div id="persyaratanContainer">
+                            {% if layanan and persyaratans %}
+                                {% for syarat in persyaratans %}
+                                <div class="input-group mb-2 persyaratan-item">
+                                    <span class="input-group-text">{{ loop.index }}</span>
+                                    <textarea class="form-control" name="persyaratan[]" rows="2" required>{{ syarat.teks }}</textarea>
+                                    <button type="button" class="btn btn-danger" onclick="removeItem(this)">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="input-group mb-2 persyaratan-item">
+                                    <span class="input-group-text">1</span>
+                                    <textarea class="form-control" name="persyaratan[]" rows="2" placeholder="Masukkan persyaratan..." required></textarea>
+                                    <button type="button" class="btn btn-danger" onclick="removeItem(this)">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-success mt-2" onclick="addPersyaratan()">
+                            <i class="bi bi-plus-circle"></i> Tambah Persyaratan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SOP Card -->
+                <div class="card shadow mb-3">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="bi bi-clipboard-data"></i> Standard Operating Procedure (SOP)
+                    </div>
+                    <div class="card-body">
+                        <div id="sopContainer">
+                            {% if layanan and sops %}
+                                {% for sop_item in sops %}
+                                <div class="input-group mb-2 sop-item">
+                                    <span class="input-group-text">{{ loop.index }}</span>
+                                    <textarea class="form-control" name="sop[]" rows="2">{{ sop_item.teks }}</textarea>
+                                    <button type="button" class="btn btn-danger" onclick="removeItem(this)">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="input-group mb-2 sop-item">
+                                    <span class="input-group-text">1</span>
+                                    <textarea class="form-control" name="sop[]" rows="2" placeholder="Masukkan langkah SOP..."></textarea>
+                                    <button type="button" class="btn btn-danger" onclick="removeItem(this)">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-warning mt-2" onclick="addSOP()">
+                            <i class="bi bi-plus-circle"></i> Tambah Langkah SOP
+                        </button>
+                        <p class="text-muted mt-2 mb-0 small">
+                            <i class="bi bi-info-circle"></i> SOP bersifat opsional. Kosongkan jika tidak ada.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="card shadow mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('layanan.layanan_list') }}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Batal
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Simpan Layanan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="card shadow mb-3">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-question-circle"></i> Panduan
+                    </div>
+                    <div class="card-body">
+                        <h6><i class="bi bi-tag"></i> ID Layanan</h6>
+                        <p class="small text-muted">
+                            Format: <code>kategori_nomor</code><br>
+                            Contoh: <code>kepeg_1</code>, <code>umum_2</code>
+                        </p>
+
+                        <h6><i class="bi bi-clipboard-check"></i> Persyaratan</h6>
+                        <p class="small text-muted">
+                            Daftar dokumen/syarat yang diperlukan. Minimal 1 persyaratan.
+                        </p>
+
+                        <h6><i class="bi bi-clipboard-data"></i> SOP</h6>
+                        <p class="small text-muted">
+                            Langkah-langkah prosedur. Opsional, bisa dikosongkan.
+                        </p>
+
+                        <h6><i class="bi bi-link-45deg"></i> Link Pendukung</h6>
+                        <p class="small text-muted">
+                            URL pendukung. <strong>Opsional</strong> - bisa dikosongkan jika tidak ada.
+                        </p>
+
+                        {% if layanan %}
+                        <hr>
+                        <h6><i class="bi bi-clock-history"></i> Info</h6>
+                        <ul class="small mb-0">
+                            <li>Dibuat: {{ layanan.created_at.strftime('%d/%m/%Y %H:%M') }}</li>
+                            <li>Update: {{ layanan.updated_at.strftime('%d/%m/%Y %H:%M') }}</li>
+                        </ul>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card shadow">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="bi bi-keyboard"></i> Keyboard Shortcuts
+                    </div>
+                    <div class="card-body">
+                        <ul class="small mb-0">
+                            <li><kbd>Ctrl</kbd> + <kbd>S</kbd> : Simpan</li>
+                            <li><kbd>Esc</kbd> : Batal</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Auto-numbering
+function updateNumbering() {
+    // Update persyaratan numbering
+    document.querySelectorAll('#persyaratanContainer .persyaratan-item').forEach((item, index) => {
+        item.querySelector('.input-group-text').textContent = index + 1;
+    });
+    
+    // Update SOP numbering
+    document.querySelectorAll('#sopContainer .sop-item').forEach((item, index) => {
+        item.querySelector('.input-group-text').textContent = index + 1;
+    });
+}
+
+// Add persyaratan
+function addPersyaratan() {
+    const container = document.getElementById('persyaratanContainer');
+    const count = container.querySelectorAll('.persyaratan-item').length + 1;
+    
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2 persyaratan-item';
+    div.innerHTML = `
+        <span class="input-group-text">${count}</span>
+        <textarea class="form-control" name="persyaratan[]" rows="2" placeholder="Masukkan persyaratan..." required></textarea>
+        <button type="button" class="btn btn-danger" onclick="removeItem(this)">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    `;
+    
+    container.appendChild(div);
+    div.querySelector('textarea').focus();
+}
+
+// Add SOP
+function addSOP() {
+    const container = document.getElementById('sopContainer');
+    const count = container.querySelectorAll('.sop-item').length + 1;
+    
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2 sop-item';
+    div.innerHTML = `
+        <span class="input-group-text">${count}</span>
+        <textarea class="form-control" name="sop[]" rows="2" placeholder="Masukkan langkah SOP..."></textarea>
+        <button type="button" class="btn btn-danger" onclick="removeItem(this)">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    `;
+    
+    container.appendChild(div);
+    div.querySelector('textarea').focus();
+}
+
+// Remove item
+function removeItem(button) {
+    const item = button.closest('.input-group');
+    const container = item.parentElement;
+    
+    // Check if it's the last item in persyaratan (must keep at least 1)
+    if (container.id === 'persyaratanContainer' && container.querySelectorAll('.persyaratan-item').length === 1) {
+        alert('Minimal harus ada 1 persyaratan!');
+        return;
+    }
+    
+    item.remove();
+    updateNumbering();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl+S to save
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        document.getElementById('layananForm').submit();
+    }
+    
+    // ESC to cancel
+    if (e.key === 'Escape') {
+        if (confirm('Batalkan perubahan?')) {
+            window.location.href = '{{ url_for("layanan.layanan_list") }}';
+        }
+    }
+});
+
+// Form validation
+document.getElementById('layananForm').addEventListener('submit', function(e) {
+    const persyaratans = document.querySelectorAll('textarea[name="persyaratan[]"]');
+    let hasContent = false;
+    
+    persyaratans.forEach(textarea => {
+        if (textarea.value.trim() !== '') {
+            hasContent = true;
+        }
+    });
+    
+    if (!hasContent) {
+        e.preventDefault();
+        alert('Minimal harus ada 1 persyaratan yang diisi!');
+        persyaratans[0].focus();
+    }
+});
+
+// Initial load
+updateNumbering();
+</script>
+{% endblock %}

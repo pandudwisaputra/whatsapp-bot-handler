@@ -1,0 +1,86 @@
+<!-- templates/admin/messages.html -->
+{% extends "admin/base.html" %}
+{% block page_title %}Messages{% endblock %}
+{% block content %}
+<div class="table-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Message Log</h5>
+        
+        <form class="row g-2" method="GET">
+            <div class="col-auto">
+                <select class="form-select form-select-sm" name="direction">
+                    <option value="">All Direction</option>
+                    <option value="incoming" {% if direction == 'incoming' %}selected{% endif %}>Incoming</option>
+                    <option value="outgoing" {% if direction == 'outgoing' %}selected{% endif %}>Outgoing</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <select class="form-select form-select-sm" name="type">
+                    <option value="">All Types</option>
+                    <option value="text" {% if message_type == 'text' %}selected{% endif %}>Text</option>
+                    <option value="interactive" {% if message_type == 'interactive' %}selected{% endif %}>Interactive</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <input type="date" class="form-control form-control-sm" name="date" value="{{ date_filter }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a href="{{ url_for('admin.messages') }}" class="btn btn-sm btn-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Direction</th>
+                    <th>Type</th>
+                    <th>Content</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for msg in messages.items %}
+                <tr>
+                    <td>{{ msg.timestamp.strftime('%d/%m %H:%M:%S') }}</td>
+                    <td>
+                        <a href="{{ url_for('admin.user_detail', user_id=msg.user.id) }}">
+                            {{ msg.user.phone_number }}
+                        </a>
+                    </td>
+                    <td><span class="badge badge-direction-{{ msg.direction }}">{{ msg.direction }}</span></td>
+                    <td>{{ msg.message_type }}</td>
+                    <td style="max-width: 300px;">{{ (msg.content[:80] + '...') if msg.content and msg.content|length > 80 else msg.content or '-' }}</td>
+                    <td><span class="badge bg-success">{{ msg.status }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if messages.pages > 1 %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not messages.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ messages.prev_num }}&direction={{ direction }}&type={{ message_type }}&date={{ date_filter }}">Previous</a>
+            </li>
+            {% for page in messages.iter_pages() %}
+                {% if page %}
+                <li class="page-item {% if page == messages.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ page }}&direction={{ direction }}&type={{ message_type }}&date={{ date_filter }}">{{ page }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not messages.has_next %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ messages.next_num }}&direction={{ direction }}&type={{ message_type }}&date={{ date_filter }}">Next</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

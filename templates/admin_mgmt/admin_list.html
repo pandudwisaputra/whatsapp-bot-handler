@@ -1,0 +1,172 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Kelola Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-people-fill"></i> Kelola Admin</h2>
+        <a href="{{ url_for('admin_mgmt.admin_create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Tambah Admin
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Search -->
+    <div class="card shadow mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-10">
+                    <input type="text" class="form-control" name="search" 
+                           placeholder="Cari username, email, atau nama..." 
+                           value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Cari
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Table -->
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="5%">No</th>
+                            <th width="15%">Username</th>
+                            <th width="20%">Email</th>
+                            <th width="10%">Role</th>
+                            <th width="10%">Status</th>
+                            <th width="15%">Dibuat</th>
+                            <th width="15%">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if admins.items %}
+                            {% for admin in admins.items %}
+                            <tr>
+                                <td>{{ loop.index + (admins.page - 1) * admins.per_page }}</td>
+                                <td>
+                                    <strong>{{ admin.username }}</strong>
+                                    {% if admin.id == current_user.id %}
+                                        <span class="badge bg-info">You</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ admin.email }}</td>
+                                <td>
+                                    {% if admin.role == 'super_admin' %}
+                                        <span class="badge bg-danger">Super Admin</span>
+                                    {% else %}
+                                        <span class="badge bg-primary">Admin</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if admin.is_active %}
+                                        <span class="badge bg-success">Aktif</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Nonaktif</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                  {% if admin.created_at %}
+                                    {{ admin.created_at.strftime('%d-%m-%Y %H:%M') }}
+                                  {% else %}
+                                    -
+                                  {% endif %}
+                                </td>
+                                <td>
+                                    {% if admin.id != current_user.id %}
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('admin_mgmt.admin_edit', id=admin.id) }}" 
+                                               class="btn btn-sm btn-warning" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            
+                                            <form method="POST" 
+                                                  action="{{ url_for('admin_mgmt.admin_toggle_status', id=admin.id) }}" 
+                                                  style="display:inline;">
+                                                <button type="submit" 
+                                                        class="btn btn-sm btn-{% if admin.is_active %}secondary{% else %}success{% endif %}" 
+                                                        title="{% if admin.is_active %}Nonaktifkan{% else %}Aktifkan{% endif %}">
+                                                    <i class="bi bi-{% if admin.is_active %}x-circle{% else %}check-circle{% endif %}"></i>
+                                                </button>
+                                            </form>
+                                            
+                                            {% if not admin.is_super_admin %}
+                                            <form method="POST" 
+                                                  action="{{ url_for('admin_mgmt.admin_delete', id=admin.id) }}" 
+                                                  onsubmit="return confirm('Yakin ingin menghapus admin ini?')" 
+                                                  style="display:inline;">
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">
+                                    <i class="bi bi-inbox"></i> Tidak ada data admin
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if admins.pages > 1 %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if not admins.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin_mgmt.admin_list', page=admins.prev_num, search=search) }}">
+                            Previous
+                        </a>
+                    </li>
+                    
+                    {% for page_num in admins.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == admins.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('admin_mgmt.admin_list', page=page_num, search=search) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="page-item {% if not admins.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin_mgmt.admin_list', page=admins.next_num, search=search) }}">
+                            Next
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,224 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Detail Layanan{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-file-alt"></i> Detail Layanan</h2>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Basic Info -->
+            <div class="card shadow mb-3">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-info-circle"></i> Informasi Dasar
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="200">ID Layanan:</th>
+                            <td><code class="fs-6">{{ layanan.layanan_id }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Kategori:</th>
+                            <td>
+                                <span class="badge bg-info fs-6">
+                                    {{ layanan.kategori.icon }} {{ layanan.kategori.nama }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Judul:</th>
+                            <td><strong class="fs-5">{{ layanan.judul }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Jangka Waktu:</th>
+                            <td>{{ layanan.jangka_waktu or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Biaya/Tarif:</th>
+                            <td>{{ layanan.biaya or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Link Pendukung:</th>
+                            <td>
+                                {% if layanan.qrcode %}
+                                    <a href="{{ layanan.qrcode }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt"></i> {{ layanan.qrcode[:50] }}...
+                                    </a>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Urutan:</th>
+                            <td><span class="badge bg-secondary">{{ layanan.urutan }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if layanan.is_active %}
+                                    <span class="badge bg-success fs-6">Aktif</span>
+                                {% else %}
+                                    <span class="badge bg-danger fs-6">Nonaktif</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Persyaratan -->
+            <div class="card shadow mb-3">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-clipboard-check"></i> Persyaratan ({{ persyaratans|length }})
+                </div>
+                <div class="card-body">
+                    {% if persyaratans %}
+                        <ol class="mb-0">
+                            {% for syarat in persyaratans %}
+                                <li class="mb-2">{{ syarat.teks }}</li>
+                            {% endfor %}
+                        </ol>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-exclamation-circle"></i> Belum ada persyaratan yang ditambahkan.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- SOP -->
+            <div class="card shadow mb-3">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-clipboard-list"></i> Standard Operating Procedure ({{ sops|length }})
+                </div>
+                <div class="card-body">
+                    {% if sops %}
+                        <div class="timeline">
+                            {% for sop in sops %}
+                                <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                                    <h6 class="text-primary">
+                                        <i class="fas fa-arrow-right"></i> Langkah {{ loop.index }}
+                                    </h6>
+                                    <p class="mb-0">{{ sop.teks }}</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-info-circle"></i> Belum ada SOP yang ditambahkan.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Stats -->
+            <div class="card shadow mb-3">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-chart-bar"></i> Statistik
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0 text-success">{{ persyaratans|length }}</h3>
+                                <small class="text-muted">Persyaratan</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="border rounded p-3">
+                                <h3 class="mb-0 text-warning">{{ sops|length }}</h3>
+                                <small class="text-muted">Langkah SOP</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meta Info -->
+            <div class="card shadow mb-3">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fas fa-clock"></i> Informasi
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <small class="text-muted">Dibuat:</small><br>
+                        <strong>{{ layanan.created_at.strftime('%d %B %Y, %H:%M') }}</strong>
+                    </p>
+                    <p class="mb-0">
+                        <small class="text-muted">Terakhir Update:</small><br>
+                        <strong>{{ layanan.updated_at.strftime('%d %B %Y, %H:%M') }}</strong>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <i class="fas fa-cog"></i> Aksi Cepat
+                </div>
+                <div class="card-body">
+                    <a href="{{ url_for('layanan.layanan_edit', id=layanan.id) }}" class="btn btn-warning w-100 mb-2">
+                        <i class="fas fa-edit"></i> Edit Layanan
+                    </a>
+                    
+                    <form method="POST" action="{{ url_for('layanan.layanan_toggle', id=layanan.id) }}" class="mb-2">
+                        <button type="submit" class="btn {% if layanan.is_active %}btn-secondary{% else %}btn-success{% endif %} w-100">
+                            <i class="fas fa-power-off"></i> 
+                            {% if layanan.is_active %}Nonaktifkan{% else %}Aktifkan{% endif %}
+                        </button>
+                    </form>
+                    
+                    <button type="button" class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        <i class="fas fa-trash"></i> Hapus Layanan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('layanan.layanan_list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Kembali ke Daftar
+        </a>
+        <a href="{{ url_for('layanan.layanan_list', kategori_id=layanan.kategori_id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-list"></i> Lihat Layanan {{ layanan.kategori.nama }}
+        </a>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Konfirmasi Hapus</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Apakah Anda yakin ingin menghapus layanan:</p>
+                <p class="fw-bold">{{ layanan.judul }}</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>Perhatian!</strong> Data persyaratan dan SOP juga akan terhapus dan tidak dapat dikembalikan!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <form method="POST" action="{{ url_for('layanan.layanan_delete', id=layanan.id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Ya, Hapus
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'Edit' if kategori else 'Tambah' }} Kategori{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-4">
+        <h2><i class="bi bi-folder"></i> {{ 'Edit' if kategori else 'Tambah' }} Kategori</h2>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="kode" class="form-label">Kode Kategori <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="kode" name="kode" 
+                                   value="{{ kategori.kode if kategori else '' }}" 
+                                   placeholder="contoh: kepegawaian" 
+                                   pattern="[a-z_]+" 
+                                   title="Hanya huruf kecil dan underscore"
+                                   {% if kategori %}readonly{% endif %} 
+                                   required>
+                            <small class="form-text text-muted">Hanya huruf kecil dan underscore (_). Tidak bisa diubah setelah dibuat.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="nama" class="form-label">Nama Kategori <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="nama" name="nama" 
+                                   value="{{ kategori.nama if kategori else '' }}" 
+                                   placeholder="contoh: Kepegawaian" 
+                                   required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="icon" class="form-label">Icon Emoji <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text" id="icon-preview" style="font-size: 1.5em;">
+                                    {{ kategori.icon if kategori else '📁' }}
+                                </span>
+                                <input type="text" class="form-control" id="icon" name="icon" 
+                                       value="{{ kategori.icon if kategori else '' }}" 
+                                       placeholder="👔" 
+                                       maxlength="2"
+                                       required>
+                            </div>
+                            <small class="form-text text-muted">
+                                Contoh: 👔 🏢 🎓 🕌 🕋 💰 🛕 📞
+                                <a href="https://emojipedia.org/" target="_blank" class="ms-2">
+                                    <i class="fas fa-external-link-alt"></i> Cari Emoji
+                                </a>
+                            </small>
+                        </div>
+
+                        
+                        <div class="mb-3">
+                            <label for="urutan" class="form-label">Urutan</label>
+                            <input type="number" class="form-control" id="urutan" name="urutan" 
+                                   value="{{ kategori.urutan if kategori else 0 }}" 
+                                   min="0" max="100">
+                            <small class="form-text text-muted">Urutan tampilan di menu (0-100)</small>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" 
+                                   {% if not kategori or kategori.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                <strong>Aktif</strong> - Kategori ditampilkan di menu
+                            </label>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('layanan.kategori_list') }}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Batal
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-info-circle"></i> Panduan
+                </div>
+                <div class="card-body">
+                    <h6>Kode Kategori</h6>
+                    <p class="small text-muted">
+                        Digunakan sebagai ID unik. Contoh: <code>kepegawaian</code>, <code>pendidikan</code>
+                    </p>
+
+                    <h6>Icon Bootstrap</h6>
+                    <p class="small text-muted">
+                        Masukkan nama class icon dari Bootstrap Icons (tanpa prefix "bi "). 
+                        Contoh: <code>bi-briefcase</code>, <code>bi-building</code>
+                    </p>
+
+                    <h6>Urutan</h6>
+                    <p class="small text-muted">
+                        Menentukan urutan tampilan. Semakin kecil angka, semakin di atas.
+                    </p>
+
+                    {% if kategori %}
+                    <hr>
+                    <h6>Info</h6>
+                    <ul class="small mb-0">
+                        <li>Dibuat: {{ kategori.created_at.strftime('%d/%m/%Y %H:%M') }}</li>
+                        <li>Update: {{ kategori.updated_at.strftime('%d/%m/%Y %H:%M') }}</li>
+                        <li>Jumlah Layanan: <strong>{{ kategori.layanan.count() }}</strong></li>
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Live preview icon
+document.getElementById('icon').addEventListener('input', function(e) {
+    const iconClass = e.target.value || 'bi-folder';
+    document.getElementById('icon-preview').innerHTML = `<i class="bi ${iconClass}" style="font-size: 1.5em;"></i>`;
+});
+
+// Quick select icon buttons
+document.querySelectorAll('.icon-select').forEach(button => {
+    button.addEventListener('click', function() {
+        const iconClass = this.getAttribute('data-icon');
+        document.getElementById('icon').value = iconClass;
+        document.getElementById('icon-preview').innerHTML = `<i class="bi ${iconClass}" style="font-size: 1.5em;"></i>`;
+    });
+});
+</script>
+{% endblock %}

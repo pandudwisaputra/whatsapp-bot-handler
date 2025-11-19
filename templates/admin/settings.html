@@ -1,0 +1,52 @@
+<!-- templates/admin/settings.html -->
+{% extends "admin/base.html" %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="table-card">
+            <h5 class="mb-3">User Information</h5>
+            <dl class="row">
+                <dt class="col-sm-4">Username</dt>
+                <dd class="col-sm-8">{{ current_user.username }}</dd>
+                
+                <dt class="col-sm-4">Email</dt>
+                <dd class="col-sm-8">{{ current_user.email or '-' }}</dd>
+                
+                <dt class="col-sm-4">Last Login</dt>
+                <dd class="col-sm-8">{{ current_user.last_login.strftime('%d/%m/%Y %H:%M') if current_user.last_login else '-' }}</dd>
+                
+                <dt class="col-sm-4">Status</dt>
+                <dd class="col-sm-8">
+                    <span class="badge bg-{% if current_user.is_active %}success{% else %}danger{% endif %}">
+                        {% if current_user.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </dd>
+            </dl>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="table-card">
+            <h5 class="mb-3">Change Password</h5>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Current Password</label>
+                    <input type="password" class="form-control" name="current_password" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">New Password</label>
+                    <input type="password" class="form-control" name="new_password" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" name="confirm_password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-key"></i> Update Password
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Kelola Kategori{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-folder"></i> Kelola Kategori</h2>
+        <a href="{{ url_for('layanan.kategori_create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Tambah Kategori
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="50">#</th>
+                            <th width="80">Icon</th>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th width="100" class="text-center">Urutan</th>
+                            <th width="120" class="text-center">Jumlah Layanan</th>
+                            <th width="100" class="text-center">Status</th>
+                            <th width="180" class="text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for kategori in kategoris %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><span style="font-size: 1.8em;">{{ kategori.icon }}</span></td>
+                            <td><code>{{ kategori.kode }}</code></td>
+                            <td><strong>{{ kategori.nama }}</strong></td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ kategori.urutan }}</span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('layanan.layanan_list', kategori_id=kategori.id) }}" 
+                                   class="badge bg-info text-decoration-none"
+                                   title="Lihat layanan dalam kategori ini">
+                                    {{ kategori.layanan.count() }} layanan
+                                </a>
+                            </td>
+                            <td class="text-center">
+                                {% if kategori.is_active %}
+                                    <span class="badge bg-success">Aktif</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Nonaktif</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group" role="group">
+                                    <!-- Tombol Lihat Detail -->
+                                    <a href="{{ url_for('layanan.layanan_list', kategori_id=kategori.id) }}" 
+                                       class="btn btn-sm btn-primary" 
+                                       title="Lihat Layanan"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    <!-- Tombol Edit -->
+                                    <a href="{{ url_for('layanan.kategori_edit', id=kategori.id) }}" 
+                                       class="btn btn-sm btn-warning" 
+                                       title="Edit Kategori"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    
+                                    <!-- Tombol Hapus -->
+                                    <button type="button" 
+                                            class="btn btn-sm btn-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ kategori.id }}" 
+                                            title="Hapus Kategori">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteModal{{ kategori.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Konfirmasi Hapus</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Apakah Anda yakin ingin menghapus kategori <strong>{{ kategori.nama }}</strong>?</p>
+                                        {% if kategori.layanan.count() > 0 %}
+                                            <div class="alert alert-warning">
+                                                <i class="bi bi-exclamation-triangle"></i> 
+                                                Kategori ini memiliki <strong>{{ kategori.layanan.count() }} layanan</strong>. 
+                                                Hapus layanan terlebih dahulu!
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                        <form method="POST" action="{{ url_for('layanan.kategori_delete', id=kategori.id) }}" style="display:inline;">
+                                            <button type="submit" class="btn btn-danger" {% if kategori.layanan.count() > 0 %}disabled{% endif %}>
+                                                <i class="bi bi-trash"></i> Hapus
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% if kategoris|length == 0 %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <i class="bi bi-inbox" style="font-size: 3rem; color: #6c757d;"></i>
+                                <p class="text-muted mt-3">Belum ada kategori. Silakan tambah kategori baru.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{{ url_for('layanan.layanan_list') }}" class="btn btn-secondary">
+            <i class="bi bi-list-ul"></i> Kelola Layanan
+        </a>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Kembali ke Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Script untuk Bootstrap Tooltip -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

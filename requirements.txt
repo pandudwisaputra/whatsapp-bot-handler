@@ -1,0 +1,31 @@
+# ============================================
+# WhatsApp Bot Kemenag - Dependencies
+# ============================================
+
+# Core Framework
+Flask
+Flask-SQLAlchemy
+
+# HTTP Requests
+requests
+
+# Environment Variables
+python-dotenv
+
+# Database Driver (MySQL)
+pymysql
+cryptography
+
+# Security (Password Hashing)
+# Note: werkzeug (included with Flask) provides secure password hashing
+# No need for separate bcrypt/passlib
+
+# Production Server
+gunicorn
+
+# ============================================
+# Optional: Add these if needed in future
+# ============================================
+# Flask-Migrate==4.0.5  # For database migrations
+# Flask-Login==0.6.3    # For advanced session management
+# pytest==7.4.3         # For testing

@@ -1,0 +1,210 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Kelola Layanan{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-list-ul"></i> Kelola Layanan</h2>
+        <a href="{{ url_for('layanan.layanan_create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Tambah Layanan
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Filter -->
+    <div class="card shadow mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Kategori</label>
+                    <select name="kategori_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">Semua Kategori</option>
+                        {% for kat in kategoris %}
+                        <option value="{{ kat.id }}" {% if selected_kategori == kat.id %}selected{% endif %}>
+                            {{ kat.icon }} {{ kat.nama }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Cari Layanan</label>
+                    <input type="text" name="search" class="form-control" placeholder="Cari judul layanan..." value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Cari
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="50">#</th>
+                            <th width="150">ID Layanan</th>
+                            <th width="150">Kategori</th>
+                            <th>Judul Layanan</th>
+                            <th width="120" class="text-center">Waktu</th>
+                            <th width="100" class="text-center">Status</th>
+                            <th width="220" class="text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for layanan in layanans %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><code>{{ layanan.layanan_id }}</code></td>
+                            <td>
+                                <span class="badge bg-info">
+                                    {{ layanan.kategori.icon }} {{ layanan.kategori.nama }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ layanan.judul[:80] }}{% if layanan.judul|length > 80 %}...{% endif %}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="fas fa-file-alt"></i> {{ layanan.persyaratan.count() }} persyaratan
+                                    | <i class="fas fa-clipboard-list"></i> {{ layanan.sop.count() }} SOP
+                                </small>
+                            </td>
+                            <td class="text-center">
+                                <small>{{ layanan.jangka_waktu }}</small>
+                            </td>
+                            <td class="text-center">
+                                {% if layanan.is_active %}
+                                    <span class="badge bg-success">Aktif</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Nonaktif</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group" role="group">
+                                    <!-- Tombol Baca/View Detail -->
+                                    <a href="{{ url_for('layanan.layanan_detail', id=layanan.id) }}" 
+                                       class="btn btn-sm btn-primary" 
+                                       title="Baca Detail Layanan"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-book"></i>
+                                    </a>
+                                    
+                                    <!-- Tombol Edit -->
+                                    <a href="{{ url_for('layanan.layanan_edit', id=layanan.id) }}" 
+                                       class="btn btn-sm btn-warning" 
+                                       title="Edit Layanan"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    
+                                    <!-- Toggle Status -->
+                                    <button type="button"
+                                            onclick="this.closest('td').querySelector('form').submit()" 
+                                            class="btn btn-sm {% if layanan.is_active %}btn-secondary{% else %}btn-success{% endif %}" 
+                                            title="{% if layanan.is_active %}Nonaktifkan{% else %}Aktifkan{% endif %}"
+                                            data-bs-toggle="tooltip">
+                                        <i class="bi bi-power"></i>
+                                    </button>
+                                    
+                                    <!-- Tombol Hapus -->
+                                    <button type="button" 
+                                            class="btn btn-sm btn-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ layanan.id }}" 
+                                            title="Hapus Layanan">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Hidden form untuk toggle -->
+                                <form method="POST" action="{{ url_for('layanan.layanan_toggle', id=layanan.id) }}" style="display:none;">
+                                </form>
+                            </td>
+                        </tr>
+
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteModal{{ layanan.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Konfirmasi Hapus</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Apakah Anda yakin ingin menghapus layanan:</p>
+                                        <p class="fw-bold">{{ layanan.judul }}</p>
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle"></i> 
+                                            Data persyaratan dan SOP juga akan terhapus!
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                        <form method="POST" action="{{ url_for('layanan.layanan_delete', id=layanan.id) }}" style="display:inline;">
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fas fa-trash"></i> Hapus
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% if layanans|length == 0 %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">
+                                    {% if search or selected_kategori %}
+                                        Tidak ada layanan yang sesuai dengan filter.
+                                    {% else %}
+                                        Belum ada layanan. Silakan tambah layanan baru.
+                                    {% endif %}
+                                </p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{{ url_for('layanan.kategori_list') }}" class="btn btn-secondary">
+            <i class="fas fa-folder"></i> Kelola Kategori
+        </a>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Script untuk Bootstrap Tooltip -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
