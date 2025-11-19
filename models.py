@@ -81,29 +81,6 @@ class UserSession(db.Model):
     def __repr__(self):
         return f'<Session User-{self.user_id}>'
 
-
-class Analytics(db.Model):
-    """Model untuk analytics harian"""
-    __tablename__ = 'analytics'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.Date, unique=True, nullable=False)
-    
-    # Metrics
-    total_users = db.Column(db.Integer, default=0)
-    new_users = db.Column(db.Integer, default=0)
-    total_messages_in = db.Column(db.Integer, default=0)
-    total_messages_out = db.Column(db.Integer, default=0)
-    
-    # Popular services
-    popular_services = db.Column(db.JSON)
-    
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Analytics {self.date}>'
-
-
 # ============================================
 # UPDATED: Admin User dengan Role Management
 # ============================================
@@ -263,56 +240,4 @@ class SOP(db.Model):
     def __repr__(self):
         return f'<SOP {self.id}>'
 
-
-class Settings(db.Model):
-    """Model untuk pengaturan aplikasi"""
-    __tablename__ = 'settings'
     
-    id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(100), unique=True, nullable=False)
-    value = db.Column(db.Text)
-    description = db.Column(db.String(200))
-    
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Settings {self.key}>'
-
-
-# ============================================
-# Admin Activity Log (Optional - untuk audit)
-# ============================================
-
-class AdminActivityLog(db.Model):
-    """Model untuk log aktivitas admin"""
-    __tablename__ = 'admin_activity_logs'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    admin_id = db.Column(db.Integer, db.ForeignKey('admin_users.id'), nullable=False)
-    action = db.Column(db.String(50), nullable=False)  # create, update, delete, login, etc
-    target_type = db.Column(db.String(50))  # kategori, layanan, admin_user, etc
-    target_id = db.Column(db.Integer)
-    description = db.Column(db.Text)
-    ip_address = db.Column(db.String(50))
-    user_agent = db.Column(db.String(200))
-    
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationship
-    admin = db.relationship('AdminUser', backref='activity_logs', lazy=True)
-    
-    def __repr__(self):
-        return f'<AdminActivityLog {self.action} by Admin-{self.admin_id}>'
-    
-    def to_dict(self):
-        """Convert to dictionary"""
-        return {
-            'id': self.id,
-            'admin': self.admin.username if self.admin else None,
-            'action': self.action,
-            'target_type': self.target_type,
-            'target_id': self.target_id,
-            'description': self.description,
-            'created_at': self.created_at.isoformat() if self.created_at else None
-        }

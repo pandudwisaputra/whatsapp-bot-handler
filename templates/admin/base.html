@@ -166,7 +166,7 @@
             <h5 class="mb-0">{% block page_title %}Dashboard{% endblock %}</h5>
             <div>
                 <span class="text-muted me-3">
-                    <i class="bi bi-person-circle"></i> {{ session.get('admin_username', 'Admin') }}
+                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
                 </span>
                 <span class="badge bg-success" id="status-badge">● Online</span>
             </div>

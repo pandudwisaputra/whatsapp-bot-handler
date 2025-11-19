@@ -6,7 +6,7 @@ SECURE VERSION with Flask-Login
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from models import db, User, Message, UserSession, Analytics, AdminUser
+from models import db, User, Message, UserSession, AdminUser
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 

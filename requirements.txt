@@ -4,6 +4,8 @@
 
 # Core Framework
 Flask
+Flask-Login
+Flask-Migrate
 Flask-SQLAlchemy
 
 # HTTP Requests
