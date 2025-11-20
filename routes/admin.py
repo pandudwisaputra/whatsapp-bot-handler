@@ -10,7 +10,7 @@ from models import db, User, Message, UserSession, AdminUser
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 
-admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+admin_bp = Blueprint('admin', __name__)
 
 
 # ============================================

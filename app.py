@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, url_for
+from flask import Flask, request, jsonify
 import requests
 import json
 import os
@@ -85,11 +85,6 @@ from routes.admin_management import admin_mgmt_bp
 app.register_blueprint(admin_mgmt_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(layanan_bp)
-
-@app.route('/')
-def index():
-    """Redirect root to admin dashboard"""
-    return redirect(url_for('admin.login'))
 
 # WhatsApp Config
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
