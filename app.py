@@ -21,11 +21,8 @@ from dotenv import load_dotenv
 import secrets
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
-
-# ✅ IMPORT FLASK-LOGIN
 from flask_login import LoginManager, current_user, login_required
 
-# Load environment variables
 load_dotenv()
 
 # Setup logging
@@ -46,7 +43,6 @@ DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# Build MySQL connection string
 if os.getenv("DATABASE_URL"):
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 else:
@@ -55,33 +51,29 @@ else:
         "?charset=utf8mb4"
     )
 
-# ✅ INISIALISASI FLASK-LOGIN
+# Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'admin.login'  # route untuk login
+login_manager.login_view = 'admin.login'
 login_manager.login_message = 'Silakan login terlebih dahulu.'
 login_manager.login_message_category = 'warning'
 
-# ✅ USER LOADER untuk Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
     return AdminUser.query.get(int(user_id))
 
-# inisialisasi SQLAlchemy dengan Flask app
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# ✅ Context processor SETELAH app didefinisikan
 @app.context_processor
 def inject_user():
     return dict(current_user=current_user)
 
-# Register blueprints setelah db di-init
+# Register blueprints
 from routes.admin import admin_bp
 from routes.layanan_routes import layanan_bp
 from routes.admin_management import admin_mgmt_bp
 
-# Register blueprint
 app.register_blueprint(admin_mgmt_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(layanan_bp)
@@ -97,11 +89,9 @@ WHATSAPP_API_URL = f"https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages
 # HELPER: Load Data from MySQL
 # ============================================
 
-
 def get_kategori_data():
     """Get all kategori from database"""
     kategoris = Kategori.query.filter_by(is_active=True).order_by(Kategori.urutan).all()
-
     result = {}
     for kat in kategoris:
         result[kat.kode] = {
@@ -114,45 +104,38 @@ def get_kategori_data():
                 .all()
             ],
         }
-
     return result
-
-
-def get_link_video():
-    """Get link video from settings"""
-    setting = Settings.query.filter_by(key="link_video_youtube").first()
-    return setting.value if setting else ""
 
 
 def find_layanan_by_id(layanan_id: str) -> Tuple[Optional[Dict], Optional[str]]:
     """Cari layanan berdasarkan ID"""
     layanan = Layanan.query.filter_by(layanan_id=layanan_id, is_active=True).first()
-
     if layanan:
         return layanan.to_dict(), layanan.kategori.kode
-
     return None, None
+
+
+def is_valid_layanan_id(response_id: str) -> bool:
+    """Cek apakah response_id adalah layanan_id yang valid dari database"""
+    layanan, _ = find_layanan_by_id(response_id)
+    return layanan is not None
 
 
 # ============================================
 # Database Helper Functions
 # ============================================
 
-
 def get_or_create_user(phone_number: str) -> User:
     """Get atau create user di database"""
     user = User.query.filter_by(phone_number=phone_number).first()
-
     if not user:
         user = User(phone_number=phone_number)
         db.session.add(user)
         db.session.commit()
         logger.info(f"✨ New user created: {phone_number}")
-
     user.last_interaction = datetime.utcnow()
     user.total_messages += 1
     db.session.commit()
-
     return user
 
 
@@ -188,16 +171,13 @@ def update_session(user: User, category: str = None, layanan_id: str = None):
     """Update user session"""
     try:
         session_obj = UserSession.query.filter_by(user_id=user.id).first()
-
         if not session_obj:
             session_obj = UserSession(user_id=user.id)
             db.session.add(session_obj)
-
         if category:
             session_obj.current_category = category
         if layanan_id:
             session_obj.last_interaction = layanan_id
-
         session_obj.updated_at = datetime.utcnow()
         db.session.commit()
     except Exception as e:
@@ -216,7 +196,6 @@ def send_whatsapp_message(to: str, payload: Dict) -> Optional[Dict]:
             "Authorization": f"Bearer {WHATSAPP_TOKEN}",
             "Content-Type": "application/json",
         }
-
         data = {"messaging_product": "whatsapp", "to": to, **payload}
 
         response = requests.post(
@@ -236,7 +215,6 @@ def send_whatsapp_message(to: str, payload: Dict) -> Optional[Dict]:
             content = interactive.get("body", {}).get("text")
 
         save_message(user, message_id, "outgoing", payload.get("type"), content)
-
         logger.info(f"✅ Message sent to {to}")
         return result
 
@@ -249,25 +227,16 @@ def send_whatsapp_message(to: str, payload: Dict) -> Optional[Dict]:
 # WhatsApp Message Builders
 # ============================================
 
-
 def get_menu_utama() -> Dict:
-    """Generate menu utama dari database MySQL tanpa pengelompokan"""
-    
+    """Generate menu utama dari database MySQL"""
     KATEGORI_DATA = get_kategori_data()
-    
-    # Buat list rows dari semua kategori
     rows = []
     for kat_key, kat_data in KATEGORI_DATA.items():
-        rows.append(
-            {
-                "id": f"kat_{kat_key}",
-                "title": f"{kat_data['icon']} {kat_data['nama']}",
-            }
-        )
-    
-    # Sort berdasarkan urutan (jika ada) atau nama
-    # Anda bisa menyesuaikan sorting sesuai kebutuhan
-    
+        rows.append({
+            "id": f"kat_{kat_key}",
+            "title": f"{kat_data['icon']} {kat_data['nama']}"[:24],
+        })
+
     return {
         "type": "interactive",
         "interactive": {
@@ -278,23 +247,17 @@ def get_menu_utama() -> Dict:
             },
             "footer": {"text": "PTSP Kemenag Kab. Madiun"},
             "action": {
-                "button": "Pilih Kategori", 
-                "sections": [
-                    {
-                        "title": "Kategori Layanan",
-                        "rows": rows
-                    }
-                ]
+                "button": "Pilih Kategori",
+                "sections": [{"title": "Kategori Layanan", "rows": rows}],
             },
         },
     }
+
 
 def get_daftar_layanan(kategori_id: str) -> Dict:
     """Generate daftar layanan per kategori dari database"""
     try:
         kategori_key = kategori_id.replace("kat_", "")
-
-        # Get from database
         kategori = Kategori.query.filter_by(kode=kategori_key, is_active=True).first()
 
         if not kategori:
@@ -311,36 +274,25 @@ def get_daftar_layanan(kategori_id: str) -> Dict:
         rows = []
         for layanan in layanan_list:
             judul = layanan.judul
-            rows.append(
-                {
-                    "id": layanan.layanan_id,
-                    "title": judul[:24],
-                    "description": (
-                        judul[24:72] if len(judul) > 24 else "Klik untuk detail"
-                    ),
-                }
-            )
+            rows.append({
+                "id": layanan.layanan_id,
+                "title": judul[:24],
+                "description": judul[24:72] if len(judul) > 24 else "Klik untuk detail",
+            })
 
         if not rows:
-            rows.append(
-                {
-                    "id": "none",
-                    "title": "Tidak ada layanan",
-                    "description": "Belum ada layanan tersedia",
-                }
-            )
+            rows.append({
+                "id": "none",
+                "title": "Tidak ada layanan",
+                "description": "Belum ada layanan tersedia",
+            })
 
         return {
             "type": "interactive",
             "interactive": {
                 "type": "list",
-                "header": {
-                    "type": "text",
-                    "text": f"{kategori.icon} {kategori.nama}",
-                },
-                "body": {
-                    "text": "Pilih layanan yang Anda butuhkan untuk melihat persyaratan dan prosedur:"
-                },
+                "header": {"type": "text", "text": f"{kategori.icon} {kategori.nama}"},
+                "body": {"text": "Pilih layanan yang Anda butuhkan untuk melihat persyaratan dan prosedur:"},
                 "footer": {"text": "PTSP Kemenag Kab. Madiun"},
                 "action": {
                     "button": "Pilih Layanan",
@@ -378,11 +330,6 @@ def get_detail_layanan(layanan_id: str) -> Dict:
         if "qrcode" in layanan and layanan["qrcode"]:
             body_text += f"\n*🔗 Link Pendukung:*\n{layanan['qrcode']}\n"
 
-        LINK_VIDEO = get_link_video()
-        if LINK_VIDEO:
-            body_text += f"\n📹 Tutorial: {LINK_VIDEO}"
-
-        # Batasi panjang
         body_text = body_text[:1024]
 
         return {
@@ -393,24 +340,9 @@ def get_detail_layanan(layanan_id: str) -> Dict:
                 "footer": {"text": "PTSP Kemenag Kab. Madiun"},
                 "action": {
                     "buttons": [
-                        {
-                            "type": "reply",
-                            "reply": {
-                                "id": f"btn_sop_{layanan_id}",
-                                "title": "📄 Lihat SOP",
-                            },
-                        },
-                        {
-                            "type": "reply",
-                            "reply": {
-                                "id": f"btn_back_{kategori_key}",
-                                "title": "⬅️ Kembali",
-                            },
-                        },
-                        {
-                            "type": "reply",
-                            "reply": {"id": "btn_menu", "title": "🏠 Menu"},
-                        },
+                        {"type": "reply", "reply": {"id": f"btn_sop_{layanan_id}", "title": "📄 Lihat SOP"}},
+                        {"type": "reply", "reply": {"id": f"btn_back_{kategori_key}", "title": "⬅️ Kembali"}},
+                        {"type": "reply", "reply": {"id": "btn_menu", "title": "🏠 Menu"}},
                     ]
                 },
             },
@@ -418,7 +350,6 @@ def get_detail_layanan(layanan_id: str) -> Dict:
     except Exception as e:
         logger.error(f"❌ Error get_detail_layanan: {e}")
         import traceback
-
         traceback.print_exc()
         return get_menu_utama()
 
@@ -442,7 +373,6 @@ def get_detail_sop(layanan_id: str) -> Dict:
 
         body_text += f"*⏱️ Total Waktu:* {layanan.get('Jangka Waktu Pelayanan', '-')}\n"
         body_text += f"*💰 Biaya:* {layanan.get('Biaya/Tarif', '-')}"
-
         body_text = body_text[:4096]
 
         return {"type": "text", "text": {"body": body_text}}
@@ -456,10 +386,14 @@ def get_button_wa_lain() -> Dict:
     return {
         "type": "text",
         "text": {
-            "body": f"*Ingin langsung menghubungi admin?*\n\nKlik tautan di bawah untuk menghubungi kami melalui WhatsApp:\nhttps://wa.me/6282245552687?text=Assalamualaikum,%20saya%20butuh%20bantuan\n\nTim support kami siap membantu Anda sesuai jam pelayanan 🙏"
+            "body": "*Ingin langsung menghubungi admin?*\n\nKlik tautan di bawah untuk menghubungi kami melalui WhatsApp:\nhttps://wa.me/6282245552687?text=Assalamualaikum,%20saya%20butuh%20bantuan\n\nTim support kami siap membantu Anda sesuai jam pelayanan 🙏"
         },
     }
 
+
+# ============================================
+# HANDLE MESSAGE - Dynamic Prefix
+# ============================================
 
 def handle_message(message: Dict, from_number: str):
     """Handle incoming message"""
@@ -494,19 +428,12 @@ def handle_message(message: Dict, from_number: str):
             else:
                 send_whatsapp_message(
                     from_number,
-                    {
-                        "type": "text",
-                        "text": {
-                            "body": "Ketik *menu* untuk melihat layanan yang tersedia."
-                        },
-                    },
+                    {"type": "text", "text": {"body": "Ketik *menu* untuk melihat layanan yang tersedia."}},
                 )
 
         elif message_type == "interactive":
             interactive = message.get("interactive", {})
-            response_id = interactive.get("list_reply", {}).get(
-                "id"
-            ) or interactive.get("button_reply", {}).get("id")
+            response_id = interactive.get("list_reply", {}).get("id") or interactive.get("button_reply", {}).get("id")
 
             if not response_id:
                 logger.warning("⚠️ No response_id found")
@@ -514,76 +441,59 @@ def handle_message(message: Dict, from_number: str):
 
             logger.info(f"🔘 Button/List clicked: {response_id}")
 
+            # 1. Pilih kategori
             if response_id.startswith("kat_"):
                 kategori_key = response_id.replace("kat_", "")
                 send_whatsapp_message(from_number, get_daftar_layanan(response_id))
                 update_session(user, category=kategori_key)
 
-            elif any(
-                response_id.startswith(prefix)
-                for prefix in [
-                    "kepeg_",
-                    "umum_",
-                    "pendidikan_",
-                    "pontren_",
-                    "haji_",
-                    "zakat_",
-                    "bimas_",
-                    "konsultasi_",
-                ]
-            ):
+            # 2. ✅ Cek layanan dinamis dari database
+            elif is_valid_layanan_id(response_id):
+                logger.info(f"📋 Layanan ditemukan: {response_id}")
                 send_whatsapp_message(from_number, get_detail_layanan(response_id))
                 update_session(user, layanan_id=response_id)
 
-                _, kategori_key = find_layanan_by_id(response_id)
-                if kategori_key:
-                    save_message(
-                        user,
-                        f"view_{response_id}",
-                        "outgoing",
-                        "interactive",
-                        service_type=kategori_key,
-                        status="viewed",
-                    )
-
+            # 3. Tombol SOP
             elif response_id.startswith("btn_sop_"):
                 layanan_id = response_id.replace("btn_sop_", "")
                 send_whatsapp_message(from_number, get_detail_sop(layanan_id))
 
+            # 4. Tombol Kembali
             elif response_id.startswith("btn_back_"):
                 kategori_key = response_id.replace("btn_back_", "")
-                send_whatsapp_message(
-                    from_number, get_daftar_layanan(f"kat_{kategori_key}")
-                )
+                send_whatsapp_message(from_number, get_daftar_layanan(f"kat_{kategori_key}"))
 
+            # 5. Tombol Menu Utama
             elif response_id == "btn_menu":
                 send_whatsapp_message(from_number, get_menu_utama())
                 time.sleep(1)
                 send_whatsapp_message(from_number, get_button_wa_lain())
                 update_session(user)
 
+            # 6. Tidak ada layanan
             elif response_id == "none":
                 send_whatsapp_message(
                     from_number,
-                    {
-                        "type": "text",
-                        "text": {
-                            "body": "Maaf, belum ada layanan tersedia untuk kategori ini. Ketik *menu* untuk kembali."
-                        },
-                    },
+                    {"type": "text", "text": {"body": "Maaf, belum ada layanan tersedia untuk kategori ini. Ketik *menu* untuk kembali."}},
+                )
+
+            # 7. Fallback
+            else:
+                logger.warning(f"⚠️ Unknown response_id: {response_id}")
+                send_whatsapp_message(
+                    from_number,
+                    {"type": "text", "text": {"body": "Maaf, pilihan tidak dikenali. Ketik *menu* untuk kembali ke menu utama."}},
                 )
 
     except Exception as e:
         logger.error(f"❌ Error handling message: {e}")
         import traceback
-
         traceback.print_exc()
 
 
 # ============================================
 # Flask Routes
 # ============================================
-
 
 @app.route("/webhook", methods=["GET"])
 def webhook_verify():
@@ -642,7 +552,6 @@ def webhook_handler():
     except Exception as e:
         logger.error(f"❌ Webhook error: {e}")
         import traceback
-
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -659,20 +568,15 @@ def health_check():
     kategori_count = Kategori.query.filter_by(is_active=True).count()
     layanan_count = Layanan.query.filter_by(is_active=True).count()
 
-    return (
-        jsonify(
-            {
-                "status": "healthy",
-                "service": "WhatsApp Bot Kemenag Madiun",
-                "timestamp": datetime.utcnow().isoformat(),
-                "database": db_status,
-                "database_type": "MySQL",
-                "categories": kategori_count,
-                "total_services": layanan_count,
-            }
-        ),
-        200,
-    )
+    return jsonify({
+        "status": "healthy",
+        "service": "WhatsApp Bot Kemenag Madiun",
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": db_status,
+        "database_type": "MySQL",
+        "categories": kategori_count,
+        "total_services": layanan_count,
+    }), 200
 
 
 @app.route("/send-test", methods=["POST"])
@@ -706,7 +610,6 @@ def internal_error(e):
 # CLI Commands
 # ============================================
 
-
 @app.cli.command()
 def init_db():
     """Initialize database tables"""
@@ -723,9 +626,6 @@ def init_db():
         db.drop_all()
         db.create_all()
         print("✅ Database tables created successfully!")
-        print("\nNext steps:")
-        print("1. Run 'flask create-admin' to create admin user")
-        print("2. Run 'flask import-layanan' to import service data")
     except Exception as e:
         print(f"❌ Error: {e}")
 
@@ -759,7 +659,6 @@ def create_admin():
 
     if not password:
         import getpass
-
         password = getpass.getpass("Enter admin password (min 8 chars): ").strip()
         if len(password) < 8:
             print("❌ Password must be at least 8 characters")
@@ -773,14 +672,13 @@ def create_admin():
     try:
         admin = AdminUser(
             username=username,
-            password_hash=hash_password(password),
+            password_hash=generate_password_hash(password),
             email=email,
             is_active=True,
         )
         db.session.add(admin)
         db.session.commit()
-
-        print("\n✅ Admin user created successfully!")
+        print(f"\n✅ Admin user created successfully!")
         print(f"   Username: {username}")
         print(f"   Email: {email}")
 
@@ -793,7 +691,6 @@ def create_admin():
 def import_layanan():
     """Import data layanan dari JSON ke MySQL"""
     from import_layanan import import_layanan_from_json, verify_import
-
     success = import_layanan_from_json()
     if success:
         verify_import()
@@ -809,8 +706,7 @@ def setup():
     try:
         db.create_all()
         print("✅ Database tables created!")
-        print()
-        print("Next steps:")
+        print("\nNext steps:")
         print("1. Run: flask create-admin")
         print("2. Run: flask import-layanan")
         print("3. Start app: python app.py")
@@ -818,26 +714,25 @@ def setup():
         print(f"❌ Error: {e}")
 
 
+# ============================================
+# Main
+# ============================================
+
 if __name__ == "__main__":
     with app.app_context():
         try:
-            # Create tables if not exist
             db.create_all()
             logger.info("✅ Database tables ready")
 
-            # Check admin
             admin_count = AdminUser.query.count()
             if admin_count == 0:
-                logger.warning("⚠️  No admin user found!")
-                logger.warning("⚠️  Run 'flask create-admin' to create admin user")
+                logger.warning("⚠️  No admin user found! Run 'flask create-admin'")
 
-            # Check service data
             kategori_count = Kategori.query.count()
             layanan_count = Layanan.query.count()
 
             if kategori_count == 0:
-                logger.warning("⚠️  No service data found!")
-                logger.warning("⚠️  Run 'flask import-layanan' to import data")
+                logger.warning("⚠️  No service data found! Run 'flask import-layanan'")
 
         except Exception as e:
             logger.error(f"⚠️  Database init error: {e}")
@@ -849,7 +744,10 @@ if __name__ == "__main__":
         print("=" * 60)
         print(f"📱 WhatsApp Token: {'✅ Set' if WHATSAPP_TOKEN else '❌ Not Set'}")
         print(f"📞 Phone ID: {'✅ Set' if PHONE_NUMBER_ID else '❌ Not Set'}")
-        print(f"🗄️  Database: MySQL ({DB_HOST}:{DB_PORT}/{DB_NAME}")
+        print(f"🗄️  Database: MySQL ({DB_HOST}:{DB_PORT}/{DB_NAME})")
+        print(f"📂 Categories: {kategori_count}")
+        print(f"📋 Services: {layanan_count}")
+        print("=" * 60)
 
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True, use_reloader=True)
