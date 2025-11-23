@@ -305,53 +305,99 @@ def get_daftar_layanan(kategori_id: str) -> Dict:
         return get_menu_utama()
 
 
-def get_detail_layanan(layanan_id: str) -> Dict:
-    """Generate detail layanan berdasarkan ID dari database"""
+def get_detail_layanan_split(layanan_id: str) -> Tuple[Dict, Optional[Dict]]:
+    """
+    Generate detail layanan dalam 2 pesan:
+    1. Text message dengan persyaratan lengkap (max 4096 chars)
+    2. Interactive button untuk aksi
+    
+    Returns: (message1, message2) atau (message1, None)
+    """
     try:
         layanan, kategori_key = find_layanan_by_id(layanan_id)
 
         if not layanan:
             logger.warning(f"⚠️ Layanan {layanan_id} tidak ditemukan")
-            return get_menu_utama()
+            return get_menu_utama(), None
 
-        body_text = f"*{layanan.get('judul', '')}*\n\n"
-        body_text += "*📋 PERSYARATAN:*\n"
-
+        # PESAN 1: Detail lengkap (text message, max 4096 chars)
+        judul = layanan.get('judul', '')
+        waktu = layanan.get('Jangka Waktu Pelayanan', '-')
+        biaya = layanan.get('Biaya/Tarif', '-')
+        
+        detail_text = f"*{judul}*\n\n"
+        detail_text += "━━━━━━━━━━━━━━━━━━━━\n"
+        detail_text += "*📋 PERSYARATAN LENGKAP*\n"
+        detail_text += "━━━━━━━━━━━━━━━━━━━━\n\n"
+        
         persyaratan = layanan.get("PERSYARATAN", [])
-        for i, req in enumerate(persyaratan[:5], 1):
-            body_text += f"{i}. {req[:100]}\n"
-
-        if len(persyaratan) > 5:
-            body_text += f"... dan {len(persyaratan) - 5} persyaratan lainnya\n"
-
-        body_text += f"\n*⏱️ WAKTU:* {layanan.get('Jangka Waktu Pelayanan', '-')}\n"
-        body_text += f"*💰 BIAYA:* {layanan.get('Biaya/Tarif', '-')}\n"
-
+        if persyaratan:
+            for i, req in enumerate(persyaratan, 1):
+                detail_text += f"{i}. {req}\n\n"
+        else:
+            detail_text += "Tidak ada persyaratan khusus\n\n"
+        
+        detail_text += "━━━━━━━━━━━━━━━━━━━━\n"
+        detail_text += f"*⏱️ JANGKA WAKTU PELAYANAN*\n{waktu}\n\n"
+        detail_text += f"*💰 BIAYA/TARIF*\n{biaya}\n\n"
+        
         if "qrcode" in layanan and layanan["qrcode"]:
-            body_text += f"\n*🔗 Link Pendukung:*\n{layanan['qrcode']}\n"
-
-        body_text = body_text[:1024]
-
-        return {
+            detail_text += f"*🔗 LINK PENDUKUNG*\n{layanan['qrcode']}\n\n"
+        
+        detail_text += "━━━━━━━━━━━━━━━━━━━━\n"
+        detail_text += "_Untuk melihat SOP lengkap, klik tombol di bawah_"
+        
+        # Limit untuk text message: 4096 karakter
+        if len(detail_text) > 4096:
+            detail_text = detail_text[:4093] + "..."
+            logger.warning(f"⚠️ Detail text dipotong: {len(detail_text)} chars")
+        
+        message1 = {
+            "type": "text",
+            "text": {"body": detail_text}
+        }
+        
+        # PESAN 2: Interactive buttons untuk aksi
+        message2 = {
             "type": "interactive",
             "interactive": {
                 "type": "button",
-                "body": {"text": body_text},
+                "body": {"text": "Silakan pilih tindakan:"},
                 "footer": {"text": "PTSP Kemenag Kab. Madiun"},
                 "action": {
                     "buttons": [
-                        {"type": "reply", "reply": {"id": f"btn_sop_{layanan_id}", "title": "📄 Lihat SOP"}},
-                        {"type": "reply", "reply": {"id": f"btn_back_{kategori_key}", "title": "⬅️ Kembali"}},
-                        {"type": "reply", "reply": {"id": "btn_menu", "title": "🏠 Menu"}},
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": f"btn_sop_{layanan_id}",
+                                "title": "📄 Lihat SOP",
+                            },
+                        },
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": f"btn_back_{kategori_key}",
+                                "title": "⬅️ Kembali",
+                            },
+                        },
+                        {
+                            "type": "reply",
+                            "reply": {"id": "btn_menu", "title": "🏠 Menu"},
+                        },
                     ]
                 },
             },
         }
+        
+        logger.info(f"📄 Detail layanan built: {len(detail_text)} chars, {len(persyaratan)} persyaratan")
+        
+        return message1, message2
+        
     except Exception as e:
-        logger.error(f"❌ Error get_detail_layanan: {e}")
+        logger.error(f"❌ Error get_detail_layanan_split: {e}")
         import traceback
         traceback.print_exc()
-        return get_menu_utama()
+        return get_menu_utama(), None
 
 
 def get_detail_sop(layanan_id: str) -> Dict:
@@ -362,18 +408,25 @@ def get_detail_sop(layanan_id: str) -> Dict:
         if not layanan:
             return {"type": "text", "text": {"body": "SOP tidak ditemukan"}}
 
-        body_text = f"*ALUR SOP*\n{layanan.get('judul', '')[:50]}...\n\n"
+        body_text = f"*📑 ALUR SOP*\n"
+        body_text += f"*{layanan.get('judul', '')}*\n\n"
+        body_text += "━━━━━━━━━━━━━━━━━━━━\n\n"
 
         sop = layanan.get("SOP", [])
         if sop:
-            for i, step in enumerate(sop[:10], 1):
-                body_text += f"*Langkah {i}:*\n{step[:150]}\n\n"
+            for i, step in enumerate(sop, 1):
+                body_text += f"*Langkah {i}:*\n{step}\n\n"
         else:
             body_text += "SOP untuk layanan ini sedang dalam proses penyusunan.\n\n"
 
+        body_text += "━━━━━━━━━━━━━━━━━━━━\n"
         body_text += f"*⏱️ Total Waktu:* {layanan.get('Jangka Waktu Pelayanan', '-')}\n"
-        body_text += f"*💰 Biaya:* {layanan.get('Biaya/Tarif', '-')}"
-        body_text = body_text[:4096]
+        body_text += f"*💰 Biaya:* {layanan.get('Biaya/Tarif', '-')}\n"
+        body_text += "━━━━━━━━━━━━━━━━━━━━"
+        
+        # Limit 4096 chars untuk text message
+        if len(body_text) > 4096:
+            body_text = body_text[:4093] + "..."
 
         return {"type": "text", "text": {"body": body_text}}
     except Exception as e:
@@ -447,10 +500,24 @@ def handle_message(message: Dict, from_number: str):
                 send_whatsapp_message(from_number, get_daftar_layanan(response_id))
                 update_session(user, category=kategori_key)
 
-            # 2. ✅ Cek layanan dinamis dari database
+            # 2. ✅ Cek layanan dinamis dari database (GUNAKAN SPLIT VERSION)
             elif is_valid_layanan_id(response_id):
                 logger.info(f"📋 Layanan ditemukan: {response_id}")
-                send_whatsapp_message(from_number, get_detail_layanan(response_id))
+                
+                # Kirim 2 pesan: detail lengkap + buttons
+                msg1, msg2 = get_detail_layanan_split(response_id)
+                
+                # Kirim pesan pertama (detail lengkap)
+                result1 = send_whatsapp_message(from_number, msg1)
+                
+                if result1:
+                    # Tunggu sebentar agar pesan tidak bertabrakan
+                    time.sleep(0.8)
+                    
+                    # Kirim pesan kedua (buttons) jika ada
+                    if msg2:
+                        send_whatsapp_message(from_number, msg2)
+                
                 update_session(user, layanan_id=response_id)
 
             # 3. Tombol SOP
