@@ -5,6 +5,7 @@ import os
 import logging
 from typing import Dict, Optional, Tuple
 from datetime import datetime
+import pytz
 from models import (
     db,
     User,
@@ -15,6 +16,7 @@ from models import (
     Layanan,
     Persyaratan,
     SOP,
+    get_wib_time,
 )
 import time
 from dotenv import load_dotenv
@@ -83,8 +85,6 @@ WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "")
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "your_verify_token_123")
 WHATSAPP_API_URL = f"https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages"
-
-
 # ============================================
 # HELPER: Load Data from MySQL
 # ============================================
@@ -108,7 +108,7 @@ def get_kategori_data():
 
 
 def find_layanan_by_id(layanan_id: str) -> Tuple[Optional[Dict], Optional[str]]:
-    """Cari layanan berdasarkan ID"""
+    """Cari layanan berdasarkan ID - UPDATED: layanan_id is PRIMARY KEY"""
     layanan = Layanan.query.filter_by(layanan_id=layanan_id, is_active=True).first()
     if layanan:
         return layanan.to_dict(), layanan.kategori.kode
@@ -117,7 +117,7 @@ def find_layanan_by_id(layanan_id: str) -> Tuple[Optional[Dict], Optional[str]]:
 
 def is_valid_layanan_id(response_id: str) -> bool:
     """Cek apakah response_id adalah layanan_id yang valid dari database"""
-    layanan, _ = find_layanan_by_id(response_id)
+    layanan = Layanan.query.filter_by(layanan_id=response_id, is_active=True).first()
     return layanan is not None
 
 
@@ -133,7 +133,7 @@ def get_or_create_user(phone_number: str) -> User:
         db.session.add(user)
         db.session.commit()
         logger.info(f"✨ New user created: {phone_number}")
-    user.last_interaction = datetime.utcnow()
+    user.last_interaction = get_wib_time()
     user.total_messages += 1
     db.session.commit()
     return user
@@ -145,7 +145,7 @@ def save_message(
     direction: str,
     message_type: str,
     content: str = None,
-    service_type: str = None,
+    layanan_id: str = None,
     status: str = "sent",
 ):
     """Save message ke database"""
@@ -156,16 +156,21 @@ def save_message(
             direction=direction,
             message_type=message_type,
             content=content,
-            service_type=service_type,
+            layanan_id=layanan_id,
             status=status,
         )
         db.session.add(msg)
         db.session.commit()
-        logger.info(f"💾 Message saved: {message_id}")
+        
+        # Log yang lebih jelas
+        if layanan_id:
+            logger.info(f"💾 Message saved: {message_id} | Direction: {direction} | Layanan: {layanan_id}")
+        else:
+            logger.info(f"💾 Message saved: {message_id} | Direction: {direction} | No layanan")
+            
     except Exception as e:
         logger.error(f"❌ Error saving message: {e}")
         db.session.rollback()
-
 
 def update_session(user: User, category: str = None, layanan_id: str = None):
     """Update user session"""
@@ -177,16 +182,20 @@ def update_session(user: User, category: str = None, layanan_id: str = None):
         if category:
             session_obj.current_category = category
         if layanan_id:
+            session_obj.current_layanan = layanan_id
             session_obj.last_interaction = layanan_id
-        session_obj.updated_at = datetime.utcnow()
+        session_obj.updated_at = get_wib_time()
         db.session.commit()
     except Exception as e:
         logger.error(f"❌ Error updating session: {e}")
         db.session.rollback()
 
 
-def send_whatsapp_message(to: str, payload: Dict) -> Optional[Dict]:
-    """Kirim pesan WhatsApp dan save ke database"""
+def send_whatsapp_message(to: str, payload: Dict, layanan_id: str = None) -> Optional[Dict]:
+    """
+    Kirim pesan WhatsApp dan save ke database
+    FIXED: Hanya save 1x dengan layanan_id jika diberikan
+    """
     try:
         if not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
             logger.error("❌ Token atau Phone ID tidak diset!")
@@ -207,6 +216,7 @@ def send_whatsapp_message(to: str, payload: Dict) -> Optional[Dict]:
         user = get_or_create_user(to)
         message_id = result.get("messages", [{}])[0].get("id", "unknown")
 
+        # Extract content
         content = None
         if payload.get("type") == "text":
             content = payload.get("text", {}).get("body")
@@ -214,14 +224,22 @@ def send_whatsapp_message(to: str, payload: Dict) -> Optional[Dict]:
             interactive = payload.get("interactive", {})
             content = interactive.get("body", {}).get("text")
 
-        save_message(user, message_id, "outgoing", payload.get("type"), content)
-        logger.info(f"✅ Message sent to {to}")
+        # PENTING: Hanya save 1x di sini
+        save_message(
+            user, 
+            message_id, 
+            "outgoing", 
+            payload.get("type"), 
+            content,
+            layanan_id=layanan_id  # Parameter opsional
+        )
+        
+        logger.info(f"✅ Message sent to {to} | Type: {payload.get('type')} | Layanan: {layanan_id or 'None'}")
         return result
 
     except Exception as e:
         logger.error(f"❌ Error sending: {e}")
         return None
-
 
 # ============================================
 # WhatsApp Message Builders
@@ -408,7 +426,7 @@ def get_detail_sop(layanan_id: str) -> Dict:
         if not layanan:
             return {"type": "text", "text": {"body": "SOP tidak ditemukan"}}
 
-        body_text = f"*📑 ALUR SOP*\n"
+        body_text = f"*🔄 ALUR SOP*\n"
         body_text += f"*{layanan.get('judul', '')}*\n\n"
         body_text += "━━━━━━━━━━━━━━━━━━━━\n\n"
 
@@ -442,26 +460,30 @@ def get_button_wa_lain() -> Dict:
             "body": "*Ingin langsung menghubungi admin?*\n\nKlik tautan di bawah untuk menghubungi kami melalui WhatsApp:\nhttps://wa.me/6282245552687?text=Assalamualaikum,%20saya%20butuh%20bantuan\n\nTim support kami siap membantu Anda sesuai jam pelayanan 🙏"
         },
     }
-
-
 # ============================================
 # HANDLE MESSAGE - Dynamic Prefix
 # ============================================
 
 def handle_message(message: Dict, from_number: str):
-    """Handle incoming message"""
+    """
+    Handle incoming message
+    FIXED: layanan_id hanya tersimpan pada content message (detail & SOP)
+    """
     try:
         message_type = message.get("type")
         message_id = message.get("id")
 
         user = get_or_create_user(from_number)
 
+        # Extract content
         content = None
         if message_type == "text":
             content = message.get("text", {}).get("body")
 
+        # Save incoming message (TIDAK PERNAH ada layanan_id untuk incoming)
         save_message(user, message_id, "incoming", message_type, content)
 
+        # Validasi type
         valid_types = ["text", "interactive"]
         if message_type not in valid_types:
             logger.info(f"⏭️ Skipping message type: {message_type}")
@@ -469,82 +491,106 @@ def handle_message(message: Dict, from_number: str):
 
         logger.info(f"📨 Processing {message_type} from {from_number}")
 
+        # === TEXT MESSAGE ===
         if message_type == "text":
             text = content.lower() if content else ""
             logger.info(f"💬 Text: {text}")
 
             if any(word in text for word in ["halo", "hi", "menu", "mulai", "start"]):
+                # ❌ Menu utama = NAVIGASI (tanpa layanan_id)
                 send_whatsapp_message(from_number, get_menu_utama())
                 time.sleep(1)
                 send_whatsapp_message(from_number, get_button_wa_lain())
                 update_session(user)
             else:
+                # ❌ Response text = NAVIGASI (tanpa layanan_id)
                 send_whatsapp_message(
                     from_number,
                     {"type": "text", "text": {"body": "Ketik *menu* untuk melihat layanan yang tersedia."}},
                 )
 
+        # === INTERACTIVE MESSAGE ===
         elif message_type == "interactive":
             interactive = message.get("interactive", {})
-            response_id = interactive.get("list_reply", {}).get("id") or interactive.get("button_reply", {}).get("id")
+            response_id = interactive.get("list_reply", {}).get("id") or \
+                         interactive.get("button_reply", {}).get("id")
 
             if not response_id:
                 logger.warning("⚠️ No response_id found")
                 return
 
-            logger.info(f"🔘 Button/List clicked: {response_id}")
+            logger.info(f"📘 Button/List clicked: {response_id}")
 
-            # 1. Pilih kategori
+            # 1️⃣ ❌ Pilih kategori = NAVIGASI (tanpa layanan_id)
             if response_id.startswith("kat_"):
                 kategori_key = response_id.replace("kat_", "")
-                send_whatsapp_message(from_number, get_daftar_layanan(response_id))
+                send_whatsapp_message(
+                    from_number, 
+                    get_daftar_layanan(response_id)
+                    # TIDAK ada parameter layanan_id
+                )
                 update_session(user, category=kategori_key)
 
-            # 2. ✅ Cek layanan dinamis dari database (GUNAKAN SPLIT VERSION)
+            # 2️⃣ ✅ PILIH LAYANAN - Detail DENGAN layanan_id, Button TANPA
             elif is_valid_layanan_id(response_id):
-                logger.info(f"📋 Layanan ditemukan: {response_id}")
+                logger.info(f"📋 Layanan dipilih: {response_id}")
                 
-                # Kirim 2 pesan: detail lengkap + buttons
                 msg1, msg2 = get_detail_layanan_split(response_id)
                 
-                # Kirim pesan pertama (detail lengkap)
-                result1 = send_whatsapp_message(from_number, msg1)
+                # ✅ Pesan 1: Detail layanan = CONTENT (DENGAN layanan_id)
+                send_whatsapp_message(
+                    from_number, 
+                    msg1, 
+                    layanan_id=response_id  # ← SIMPAN DI SINI
+                )
                 
-                if result1:
-                    # Tunggu sebentar agar pesan tidak bertabrakan
-                    time.sleep(0.8)
-                    
-                    # Kirim pesan kedua (buttons) jika ada
-                    if msg2:
-                        send_whatsapp_message(from_number, msg2)
+                time.sleep(0.8)
+                
+                # ❌ Pesan 2: Button navigasi = NAVIGASI (TANPA layanan_id)
+                if msg2:
+                    send_whatsapp_message(
+                        from_number, 
+                        msg2
+                        # ← TIDAK ada layanan_id
+                    )
                 
                 update_session(user, layanan_id=response_id)
 
-            # 3. Tombol SOP
+            # 3️⃣ ❌ Tombol SOP = NAVIGASI/INFO (TANPA layanan_id)
             elif response_id.startswith("btn_sop_"):
                 layanan_id = response_id.replace("btn_sop_", "")
-                send_whatsapp_message(from_number, get_detail_sop(layanan_id))
+                logger.info(f"📄 SOP diminta: {layanan_id}")
+                
+                send_whatsapp_message(
+                    from_number, 
+                    get_detail_sop(layanan_id)
+                    # ← TIDAK ada layanan_id (NULL)
+                )
 
-            # 4. Tombol Kembali
+            # 4️⃣ ❌ Tombol Kembali = NAVIGASI (tanpa layanan_id)
             elif response_id.startswith("btn_back_"):
                 kategori_key = response_id.replace("btn_back_", "")
-                send_whatsapp_message(from_number, get_daftar_layanan(f"kat_{kategori_key}"))
+                send_whatsapp_message(
+                    from_number, 
+                    get_daftar_layanan(f"kat_{kategori_key}")
+                    # TIDAK ada layanan_id
+                )
 
-            # 5. Tombol Menu Utama
+            # 5️⃣ ❌ Tombol Menu = NAVIGASI (tanpa layanan_id)
             elif response_id == "btn_menu":
                 send_whatsapp_message(from_number, get_menu_utama())
                 time.sleep(1)
                 send_whatsapp_message(from_number, get_button_wa_lain())
                 update_session(user)
 
-            # 6. Tidak ada layanan
+            # 6️⃣ ❌ Tidak ada layanan = NAVIGASI (tanpa layanan_id)
             elif response_id == "none":
                 send_whatsapp_message(
                     from_number,
                     {"type": "text", "text": {"body": "Maaf, belum ada layanan tersedia untuk kategori ini. Ketik *menu* untuk kembali."}},
                 )
 
-            # 7. Fallback
+            # 7️⃣ ❌ Fallback = NAVIGASI (tanpa layanan_id)
             else:
                 logger.warning(f"⚠️ Unknown response_id: {response_id}")
                 send_whatsapp_message(
@@ -556,7 +602,6 @@ def handle_message(message: Dict, from_number: str):
         logger.error(f"❌ Error handling message: {e}")
         import traceback
         traceback.print_exc()
-
 
 # ============================================
 # Flask Routes
@@ -638,9 +683,10 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "service": "WhatsApp Bot Kemenag Madiun",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": get_wib_time().isoformat(),
         "database": db_status,
         "database_type": "MySQL",
+        "timezone": "Asia/Jakarta (WIB)",
         "categories": kategori_count,
         "total_services": layanan_count,
     }), 200
@@ -671,8 +717,6 @@ def not_found(e):
 @app.errorhandler(500)
 def internal_error(e):
     return jsonify({"error": "Internal server error", "message": str(e)}), 500
-
-
 # ============================================
 # CLI Commands
 # ============================================
@@ -701,7 +745,7 @@ def init_db():
 def create_admin():
     """Create admin user"""
     print("=" * 60)
-    print("🔐 Creating Admin User")
+    print("👤 Creating Admin User")
     print("=" * 60)
 
     existing_admin = AdminUser.query.first()
@@ -716,7 +760,6 @@ def create_admin():
 
     username = os.getenv("ADMIN_USERNAME")
     password = os.getenv("ADMIN_PASSWORD")
-    email = os.getenv("ADMIN_EMAIL", "admin@kemenagmadiun.go.id")
 
     if not username:
         username = input("Enter admin username: ").strip()
@@ -740,14 +783,12 @@ def create_admin():
         admin = AdminUser(
             username=username,
             password_hash=generate_password_hash(password),
-            email=email,
             is_active=True,
         )
         db.session.add(admin)
         db.session.commit()
         print(f"\n✅ Admin user created successfully!")
         print(f"   Username: {username}")
-        print(f"   Email: {email}")
 
     except Exception as e:
         print(f"❌ Error creating admin: {e}")
@@ -812,6 +853,7 @@ if __name__ == "__main__":
         print(f"📱 WhatsApp Token: {'✅ Set' if WHATSAPP_TOKEN else '❌ Not Set'}")
         print(f"📞 Phone ID: {'✅ Set' if PHONE_NUMBER_ID else '❌ Not Set'}")
         print(f"🗄️  Database: MySQL ({DB_HOST}:{DB_PORT}/{DB_NAME})")
+        print(f"🌏 Timezone: Asia/Jakarta (WIB)")
         print(f"📂 Categories: {kategori_count}")
         print(f"📋 Services: {layanan_count}")
         print("=" * 60)

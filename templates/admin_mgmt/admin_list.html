@@ -29,7 +29,7 @@
             <form method="GET" class="row g-3">
                 <div class="col-md-10">
                     <input type="text" class="form-control" name="search" 
-                           placeholder="Cari username, email, atau nama..." 
+                           placeholder="Cari username" 
                            value="{{ search }}">
                 </div>
                 <div class="col-md-2">
@@ -50,7 +50,6 @@
                         <tr>
                             <th width="5%">No</th>
                             <th width="15%">Username</th>
-                            <th width="20%">Email</th>
                             <th width="10%">Role</th>
                             <th width="10%">Status</th>
                             <th width="15%">Dibuat</th>
@@ -68,7 +67,6 @@
                                         <span class="badge bg-info">You</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ admin.email }}</td>
                                 <td>
                                     {% if admin.role == 'super_admin' %}
                                         <span class="badge bg-danger">Super Admin</span>

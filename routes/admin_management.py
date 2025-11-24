@@ -25,7 +25,6 @@ def admin_list():
         query = query.filter(
             or_(
                 AdminUser.username.ilike(search_filter),
-                AdminUser.email.ilike(search_filter)
             )
         )
     
@@ -43,7 +42,6 @@ def admin_create():
     if request.method == 'POST':
         try:
             username = request.form.get('username')
-            email = request.form.get('email')
             password = request.form.get('password')
             role = request.form.get('role', 'admin')
             is_active = request.form.get('is_active') == 'on'
@@ -53,15 +51,9 @@ def admin_create():
                 flash(f'Username "{username}" sudah digunakan!', 'danger')
                 return redirect(url_for('admin_mgmt.admin_create'))
             
-            # Validasi email sudah ada
-            if AdminUser.query.filter_by(email=email).first():  # ✅ UBAH
-                flash(f'Email "{email}" sudah digunakan!', 'danger')
-                return redirect(url_for('admin_mgmt.admin_create'))
-            
             # Buat user baru
             user = AdminUser(  # ✅ UBAH
                 username=username,
-                email=email,
                 role=role,
                 is_active=is_active
             )
@@ -95,7 +87,6 @@ def admin_edit(id):
     if request.method == 'POST':
         try:
             username = request.form.get('username')
-            email = request.form.get('email')
             password = request.form.get('password')
             role = request.form.get('role', 'admin')
             is_active = request.form.get('is_active') == 'on'
@@ -106,15 +97,8 @@ def admin_edit(id):
                 flash(f'Username "{username}" sudah digunakan!', 'danger')
                 return redirect(url_for('admin_mgmt.admin_edit', id=id))
             
-            # Validasi email (kecuali milik sendiri)
-            existing_email = AdminUser.query.filter_by(email=email).first()  # ✅ UBAH
-            if existing_email and existing_email.id != admin.id:
-                flash(f'Email "{email}" sudah digunakan!', 'danger')
-                return redirect(url_for('admin_mgmt.admin_edit', id=id))
-            
             # Update data
             admin.username = username
-            admin.email = email
             admin.role = role
             admin.is_active = is_active
             admin.updated_at = datetime.utcnow()

@@ -28,7 +28,7 @@
                             <label for="kode" class="form-label">Kode Kategori <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="kode" name="kode" 
                                    value="{{ kategori.kode if kategori else '' }}" 
-                                   placeholder="contoh: kepegawaian" 
+                                   placeholder="contoh: Seksi Pendma" 
                                    pattern="[a-z_]+" 
                                    title="Hanya huruf kecil dan underscore"
                                    {% if kategori %}readonly{% endif %} 
@@ -40,7 +40,7 @@
                             <label for="nama" class="form-label">Nama Kategori <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="nama" name="nama" 
                                    value="{{ kategori.nama if kategori else '' }}" 
-                                   placeholder="contoh: Kepegawaian" 
+                                   placeholder="contoh: Seksi Pendma" 
                                    required>
                         </div>
 
@@ -104,7 +104,7 @@
                 <div class="card-body">
                     <h6>Kode Kategori</h6>
                     <p class="small text-muted">
-                        Digunakan sebagai ID unik. Contoh: <code>kepegawaian</code>, <code>pendidikan</code>
+                        Digunakan sebagai ID unik. Contoh: <code>Seksi Pendma</code>, <code>Seksi Pontren</code>
                     </p>
 
                     <h6>Icon Bootstrap</h6>

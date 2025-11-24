@@ -1,86 +1,179 @@
-<!-- templates/admin/messages.html -->
+<!-- templates/admin/messages.html - FIXED: min() error -->
 {% extends "admin/base.html" %}
 {% block page_title %}Messages{% endblock %}
+
 {% block content %}
 <div class="table-card">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">Message Log</h5>
-        
-        <form class="row g-2" method="GET">
-            <div class="col-auto">
-                <select class="form-select form-select-sm" name="direction">
-                    <option value="">All Direction</option>
-                    <option value="incoming" {% if direction == 'incoming' %}selected{% endif %}>Incoming</option>
-                    <option value="outgoing" {% if direction == 'outgoing' %}selected{% endif %}>Outgoing</option>
-                </select>
+        <h5 class="mb-0">💬 Message History</h5>
+        <div class="d-flex gap-2">
+            <!-- Filter Direction -->
+            <div class="btn-group">
+                <a href="{{ url_for('admin.messages') }}" 
+                   class="btn btn-sm {% if not direction %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    All
+                </a>
+                <a href="{{ url_for('admin.messages', direction='incoming') }}" 
+                   class="btn btn-sm {% if direction == 'incoming' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    📥 Incoming
+                </a>
+                <a href="{{ url_for('admin.messages', direction='outgoing') }}" 
+                   class="btn btn-sm {% if direction == 'outgoing' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    📤 Outgoing
+                </a>
             </div>
-            <div class="col-auto">
-                <select class="form-select form-select-sm" name="type">
-                    <option value="">All Types</option>
-                    <option value="text" {% if message_type == 'text' %}selected{% endif %}>Text</option>
-                    <option value="interactive" {% if message_type == 'interactive' %}selected{% endif %}>Interactive</option>
-                </select>
-            </div>
-            <div class="col-auto">
-                <input type="date" class="form-control form-control-sm" name="date" value="{{ date_filter }}">
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
-                <a href="{{ url_for('admin.messages') }}" class="btn btn-sm btn-secondary">Reset</a>
-            </div>
-        </form>
+            
+            <!-- Search Form -->
+            <form method="get" class="d-flex gap-2">
+                <input type="hidden" name="direction" value="{{ direction }}">
+                <input type="text" 
+                       name="search" 
+                       value="{{ search }}" 
+                       class="form-control form-control-sm" 
+                       placeholder="Search phone..."
+                       style="width: 150px;">
+                <button type="submit" class="btn btn-sm btn-primary">🔍</button>
+                {% if search %}
+                <a href="{{ url_for('admin.messages', direction=direction) }}" 
+                   class="btn btn-sm btn-secondary">Clear</a>
+                {% endif %}
+            </form>
+        </div>
     </div>
-    
+
+    {% if messages %}
     <div class="table-responsive">
-        <table class="table table-sm table-hover">
+        <table class="table table-hover">
             <thead>
                 <tr>
-                    <th>Time</th>
-                    <th>User</th>
-                    <th>Direction</th>
-                    <th>Type</th>
+                    <th width="50">#</th>
+                    <th width="80">Direction</th>
+                    <th width="120">Phone</th>
+                    <th width="100">Type</th>
                     <th>Content</th>
-                    <th>Status</th>
+                    <th width="200">Layanan</th>
+                    <th width="80">Status</th>
+                    <th width="140">Time</th>
                 </tr>
             </thead>
             <tbody>
-                {% for msg in messages.items %}
+                {% for msg in messages %}
                 <tr>
-                    <td>{{ msg.timestamp.strftime('%d/%m %H:%M:%S') }}</td>
+                    <td>{{ ((pagination.page - 1) * pagination.per_page) + loop.index }}</td>
                     <td>
-                        <a href="{{ url_for('admin.user_detail', user_id=msg.user.id) }}">
-                            {{ msg.user.phone_number }}
-                        </a>
+                        {% if msg.direction == 'incoming' %}
+                        <span class="badge bg-info">📥 IN</span>
+                        {% else %}
+                        <span class="badge bg-success">📤 OUT</span>
+                        {% endif %}
                     </td>
-                    <td><span class="badge badge-direction-{{ msg.direction }}">{{ msg.direction }}</span></td>
-                    <td>{{ msg.message_type }}</td>
-                    <td style="max-width: 300px;">{{ (msg.content[:80] + '...') if msg.content and msg.content|length > 80 else msg.content or '-' }}</td>
-                    <td><span class="badge bg-success">{{ msg.status }}</span></td>
+                    <td>
+                        <small class="font-monospace">{{ msg.phone_number }}</small>
+                    </td>
+                    <td>
+                        <small class="text-muted">{{ msg.message_type }}</small>
+                    </td>
+                    <td>
+                        {% if msg.content %}
+                        <div class="text-truncate" style="max-width: 300px;" title="{{ msg.content }}">
+                            {{ msg.content }}
+                        </div>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if msg.layanan_nama %}
+                        <div class="text-truncate" 
+                             style="max-width: 200px;" 
+                             title="{{ msg.layanan_nama }}"
+                             data-bs-toggle="tooltip">
+                            <span class="badge bg-primary">📋</span>
+                            <small>{{ msg.layanan_nama[:40] }}{% if msg.layanan_nama|length > 40 %}...{% endif %}</small>
+                        </div>
+                        <small class="text-muted">ID: {{ msg.layanan_id }}</small>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if msg.status == 'sent' %}
+                        <span class="badge bg-success">✓</span>
+                        {% elif msg.status == 'failed' %}
+                        <span class="badge bg-danger">✗</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ msg.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <small class="text-muted">{{ msg.created_at }}</small>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    
+
     <!-- Pagination -->
-    {% if messages.pages > 1 %}
-    <nav>
-        <ul class="pagination justify-content-center">
-            <li class="page-item {% if not messages.has_prev %}disabled{% endif %}">
-                <a class="page-link" href="?page={{ messages.prev_num }}&direction={{ direction }}&type={{ message_type }}&date={{ date_filter }}">Previous</a>
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center mb-0">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin.messages', page=pagination.prev_num, direction=direction, search=search) }}">
+                    Previous
+                </a>
             </li>
-            {% for page in messages.iter_pages() %}
-                {% if page %}
-                <li class="page-item {% if page == messages.page %}active{% endif %}">
-                    <a class="page-link" href="?page={{ page }}&direction={{ direction }}&type={{ message_type }}&date={{ date_filter }}">{{ page }}</a>
-                </li>
+            
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.messages', page=page_num, direction=direction, search=search) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
                 {% endif %}
             {% endfor %}
-            <li class="page-item {% if not messages.has_next %}disabled{% endif %}">
-                <a class="page-link" href="?page={{ messages.next_num }}&direction={{ direction }}&type={{ message_type }}&date={{ date_filter }}">Next</a>
+            
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin.messages', page=pagination.next_num, direction=direction, search=search) }}">
+                    Next
+                </a>
             </li>
         </ul>
     </nav>
     {% endif %}
+
+    <!-- Summary - FIXED: Ganti min() dengan kondisional -->
+    <div class="mt-3 text-center text-muted">
+        <small>
+            {% set start = ((pagination.page - 1) * pagination.per_page) + 1 %}
+            {% set end = pagination.page * pagination.per_page %}
+            {% if end > pagination.total %}
+                {% set end = pagination.total %}
+            {% endif %}
+            Showing {{ start }} to {{ end }} of {{ pagination.total }} messages
+        </small>
+    </div>
+
+    {% else %}
+    <div class="text-center py-5">
+        <p class="text-muted">No messages found</p>
+        {% if search or direction %}
+        <a href="{{ url_for('admin.messages') }}" class="btn btn-sm btn-primary">Reset Filters</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+});
+</script>
 {% endblock %}

@@ -159,17 +159,17 @@
                 </div>
             </div>
 
-            <!-- Actions -->
+            <!-- Actions - FIXED: Gunakan layanan.layanan_id -->
             <div class="card shadow">
                 <div class="card-header bg-dark text-white">
                     <i class="fas fa-cog"></i> Aksi Cepat
                 </div>
                 <div class="card-body">
-                    <a href="{{ url_for('layanan.layanan_edit', id=layanan.id) }}" class="btn btn-warning w-100 mb-2">
+                    <a href="{{ url_for('layanan.layanan_edit', layanan_id=layanan.layanan_id) }}" class="btn btn-warning w-100 mb-2">
                         <i class="fas fa-edit"></i> Edit Layanan
                     </a>
                     
-                    <form method="POST" action="{{ url_for('layanan.layanan_toggle', id=layanan.id) }}" class="mb-2">
+                    <form method="POST" action="{{ url_for('layanan.layanan_toggle', layanan_id=layanan.layanan_id) }}" class="mb-2">
                         <button type="submit" class="btn {% if layanan.is_active %}btn-secondary{% else %}btn-success{% endif %} w-100">
                             <i class="fas fa-power-off"></i> 
                             {% if layanan.is_active %}Nonaktifkan{% else %}Aktifkan{% endif %}
@@ -194,7 +194,7 @@
     </div>
 </div>
 
-<!-- Delete Modal -->
+<!-- Delete Modal - FIXED: Gunakan layanan.layanan_id -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -212,7 +212,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <form method="POST" action="{{ url_for('layanan.layanan_delete', id=layanan.id) }}" style="display:inline;">
+                <form method="POST" action="{{ url_for('layanan.layanan_delete', layanan_id=layanan.layanan_id) }}" style="display:inline;">
                     <button type="submit" class="btn btn-danger">
                         <i class="fas fa-trash"></i> Ya, Hapus
                     </button>

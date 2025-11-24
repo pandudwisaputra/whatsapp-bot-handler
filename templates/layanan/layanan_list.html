@@ -97,16 +97,15 @@
                             </td>
                             <td class="text-center">
                                 <div class="btn-group" role="group">
-                                    <!-- Tombol Baca/View Detail -->
-                                    <a href="{{ url_for('layanan.layanan_detail', id=layanan.id) }}" 
+                                    <!-- FIXED: Gunakan layanan.layanan_id bukan Layanan.layanan_id -->
+                                    <a href="{{ url_for('layanan.layanan_detail', layanan_id=layanan.layanan_id) }}" 
                                        class="btn btn-sm btn-primary" 
                                        title="Baca Detail Layanan"
                                        data-bs-toggle="tooltip">
                                         <i class="bi bi-book"></i>
                                     </a>
                                     
-                                    <!-- Tombol Edit -->
-                                    <a href="{{ url_for('layanan.layanan_edit', id=layanan.id) }}" 
+                                    <a href="{{ url_for('layanan.layanan_edit', layanan_id=layanan.layanan_id) }}" 
                                        class="btn btn-sm btn-warning" 
                                        title="Edit Layanan"
                                        data-bs-toggle="tooltip">
@@ -122,24 +121,23 @@
                                         <i class="bi bi-power"></i>
                                     </button>
                                     
-                                    <!-- Tombol Hapus -->
                                     <button type="button" 
                                             class="btn btn-sm btn-danger" 
                                             data-bs-toggle="modal" 
-                                            data-bs-target="#deleteModal{{ layanan.id }}" 
+                                            data-bs-target="#deleteModal{{ loop.index }}" 
                                             title="Hapus Layanan">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
                                 
                                 <!-- Hidden form untuk toggle -->
-                                <form method="POST" action="{{ url_for('layanan.layanan_toggle', id=layanan.id) }}" style="display:none;">
+                                <form method="POST" action="{{ url_for('layanan.layanan_toggle', layanan_id=layanan.layanan_id) }}" style="display:none;">
                                 </form>
                             </td>
                         </tr>
 
-                        <!-- Delete Modal -->
-                        <div class="modal fade" id="deleteModal{{ layanan.id }}" tabindex="-1">
+                        <!-- Delete Modal - FIXED: Gunakan loop.index untuk ID unik -->
+                        <div class="modal fade" id="deleteModal{{ loop.index }}" tabindex="-1">
                             <div class="modal-dialog">
                                 <div class="modal-content">
                                     <div class="modal-header">
@@ -156,7 +154,7 @@
                                     </div>
                                     <div class="modal-footer">
                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                        <form method="POST" action="{{ url_for('layanan.layanan_delete', id=layanan.id) }}" style="display:inline;">
+                                        <form method="POST" action="{{ url_for('layanan.layanan_delete', layanan_id=layanan.layanan_id) }}" style="display:inline;">
                                             <button type="submit" class="btn btn-danger">
                                                 <i class="fas fa-trash"></i> Hapus
                                             </button>

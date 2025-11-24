@@ -1,4 +1,4 @@
-<!-- templates/admin/analytics.html -->
+<!-- templates/admin/analytics.html - UPDATED: Tampilkan nama layanan -->
 {% extends "admin/base.html" %}
 {% block page_title %}Analytics{% endblock %}
 {% block content %}
@@ -6,7 +6,7 @@
     <div class="col-12">
         <div class="table-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Daily Statistics</h5>
+                <h5 class="mb-0">📊 Daily Statistics</h5>
                 <div class="btn-group">
                     <a href="?days=7" class="btn btn-sm {% if days == 7 %}btn-primary{% else %}btn-outline-primary{% endif %}">7 Days</a>
                     <a href="?days=30" class="btn btn-sm {% if days == 30 %}btn-primary{% else %}btn-outline-primary{% endif %}">30 Days</a>
@@ -21,21 +21,81 @@
 <div class="row g-3">
     <div class="col-md-6">
         <div class="table-card">
-            <h5 class="mb-3">Service Popularity</h5>
+            <h5 class="mb-3">📈 Service Popularity</h5>
+            {% if service_stats %}
             <canvas id="serviceChart"></canvas>
+            {% else %}
+            <p class="text-muted text-center py-4">Belum ada data layanan</p>
+            {% endif %}
         </div>
     </div>
     <div class="col-md-6">
         <div class="table-card">
-            <h5 class="mb-3">Top Services</h5>
+            <h5 class="mb-3">🏆 Top Services</h5>
+            {% if service_stats %}
             <div class="list-group list-group-flush">
-                {% for service, count in service_stats[:10] %}
-                <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                    <span>{{ service or 'Unknown' }}</span>
+                {% for service_name, count in service_stats[:10] %}
+                <div class="list-group-item d-flex justify-content-between align-items-start px-0">
+                    <div class="ms-2 me-auto">
+                        <div class="fw-bold">{{ service_name[:50] }}</div>
+                        <small class="text-muted">{{ service_name[50:] if service_name|length > 50 }}</small>
+                    </div>
                     <span class="badge bg-primary rounded-pill">{{ count }}</span>
                 </div>
                 {% endfor %}
             </div>
+            {% else %}
+            <p class="text-muted text-center py-4">Belum ada layanan yang diakses</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-3">
+    <div class="col-12">
+        <div class="table-card">
+            <h5 class="mb-3">📋 Service Details</h5>
+            {% if service_stats %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th width="60">#</th>
+                            <th>Nama Layanan</th>
+                            <th width="120" class="text-end">Total Akses</th>
+                            <th width="120" class="text-end">Persentase</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total = service_stats | sum(attribute='1') %}
+                        {% for service_name, count in service_stats %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <div class="text-truncate" style="max-width: 400px;" title="{{ service_name }}">
+                                    {{ service_name }}
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <strong>{{ count }}</strong>
+                            </td>
+                            <td class="text-end">
+                                {% set percentage = (count / total * 100) | round(1) %}
+                                <span class="badge bg-info">{{ percentage }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="2">TOTAL</td>
+                            <td class="text-end">{{ total }}</td>
+                            <td class="text-end">100%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-4">Belum ada data statistik layanan</p>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -54,39 +114,111 @@ new Chart(dailyCtx, {
             data: {{ daily_data | map(attribute='incoming') | list | tojson }},
             borderColor: '#0dcaf0',
             backgroundColor: 'rgba(13, 202, 240, 0.1)',
+            tension: 0.4
         }, {
             label: 'Outgoing',
             data: {{ daily_data | map(attribute='outgoing') | list | tojson }},
             borderColor: '#198754',
             backgroundColor: 'rgba(25, 135, 84, 0.1)',
+            tension: 0.4
         }, {
             label: 'New Users',
             data: {{ daily_data | map(attribute='new_users') | list | tojson }},
             borderColor: '#ffc107',
             backgroundColor: 'rgba(255, 193, 7, 0.1)',
             yAxisID: 'y1',
+            tension: 0.4
         }]
     },
     options: {
         responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
         scales: {
-            y: { beginAtZero: true, position: 'left' },
-            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } }
+            y: { 
+                beginAtZero: true, 
+                position: 'left',
+                title: { display: true, text: 'Messages' }
+            },
+            y1: { 
+                beginAtZero: true, 
+                position: 'right', 
+                grid: { drawOnChartArea: false },
+                title: { display: true, text: 'New Users' }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                cornerRadius: 4
+            }
         }
     }
 });
 
-// Service Chart
+{% if service_stats %}
+// Service Chart - UPDATED: Gunakan nama layanan
 const serviceCtx = document.getElementById('serviceChart');
+
+// Truncate nama layanan jika terlalu panjang
+const serviceLabels = {{ service_stats[:5] | map(attribute='0') | list | tojson }};
+const truncatedLabels = serviceLabels.map(label => 
+    label.length > 40 ? label.substring(0, 37) + '...' : label
+);
+
 new Chart(serviceCtx, {
     type: 'doughnut',
     data: {
-        labels: {{ service_stats[:5] | map(attribute='0') | list | tojson }},
+        labels: truncatedLabels,
         datasets: [{
             data: {{ service_stats[:5] | map(attribute='1') | list | tojson }},
-            backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0']
+            backgroundColor: [
+                '#0d6efd',
+                '#198754', 
+                '#ffc107', 
+                '#dc3545', 
+                '#0dcaf0'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
         }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 15,
+                    font: {
+                        size: 11
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                cornerRadius: 4,
+                callbacks: {
+                    label: function(context) {
+                        // Tampilkan nama lengkap di tooltip
+                        const fullLabel = serviceLabels[context.dataIndex];
+                        const value = context.parsed;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return `${fullLabel}: ${value} (${percentage}%)`;
+                    }
+                }
+            }
+        }
     }
 });
+{% endif %}
 </script>
 {% endblock %}

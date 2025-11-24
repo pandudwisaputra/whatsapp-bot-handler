@@ -1,15 +1,14 @@
 """
 CRUD Routes untuk Manajemen Layanan
 WhatsApp Bot Kemenag Kabupaten Madiun
+FIXED: Perbaikan penggunaan layanan_id
 """
 
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask_login import login_required
 from models import db, Kategori, Layanan, Persyaratan, SOP
 from datetime import datetime
 from sqlalchemy import desc
-from routes import login_required  # ✅ Import dari package
-from routes.admin import login_required
-from .admin import login_required  # ✅ Relative import
 
 layanan_bp = Blueprint('layanan', __name__, url_prefix='/admin/layanan')
 
@@ -160,8 +159,8 @@ def layanan_create():
                 flash('Kategori tidak ditemukan!', 'danger')
                 return redirect(url_for('layanan.layanan_create'))
             
-            # Generate layanan_id otomatis berdasarkan kode kategori
-            kode_kategori = kategori.kode  # Misal: 'kepeg', 'umum', dll
+            # Generate layanan_id otomatis
+            kode_kategori = kategori.kode
             
             # Cari layanan terakhir dengan prefix yang sama
             last_layanan = Layanan.query.filter(
@@ -172,7 +171,6 @@ def layanan_create():
             
             # Generate nomor urut baru
             if last_layanan:
-                # Extract nomor dari layanan_id terakhir (misal: kepeg_5 -> 5)
                 try:
                     last_number = int(last_layanan.layanan_id.split('_')[-1])
                     new_number = last_number + 1
@@ -184,12 +182,12 @@ def layanan_create():
             # Buat layanan_id baru
             layanan_id = f"{kode_kategori}_{new_number}"
             
-            # Double check apakah ID sudah ada (untuk keamanan)
+            # Double check
             while Layanan.query.filter_by(layanan_id=layanan_id).first():
                 new_number += 1
                 layanan_id = f"{kode_kategori}_{new_number}"
             
-            # Ambil data form lainnya
+            # Ambil data form
             judul = request.form.get('judul')
             jangka_waktu = request.form.get('jangka_waktu')
             biaya = request.form.get('biaya')
@@ -199,7 +197,7 @@ def layanan_create():
             
             # Buat layanan baru
             layanan = Layanan(
-                layanan_id=layanan_id,  # ID otomatis
+                layanan_id=layanan_id,
                 kategori_id=kategori_id,
                 judul=judul,
                 jangka_waktu=jangka_waktu,
@@ -210,14 +208,15 @@ def layanan_create():
             )
             
             db.session.add(layanan)
-            db.session.flush()  # Get ID
+            db.session.flush()
             
+            # FIXED: Gunakan variabel layanan, bukan class Layanan
             # Add persyaratan
             persyaratan_list = request.form.getlist('persyaratan[]')
             for idx, syarat in enumerate(persyaratan_list, 1):
                 if syarat.strip():
                     persyaratan = Persyaratan(
-                        layanan_id=layanan.id,
+                        layanan_id=layanan.layanan_id,  # FIXED: gunakan variabel
                         teks=syarat.strip(),
                         urutan=idx
                     )
@@ -228,7 +227,7 @@ def layanan_create():
             for idx, sop_text in enumerate(sop_list, 1):
                 if sop_text.strip():
                     sop = SOP(
-                        layanan_id=layanan.id,
+                        layanan_id=layanan.layanan_id,  # FIXED: gunakan variabel
                         teks=sop_text.strip(),
                         urutan=idx
                     )
@@ -242,14 +241,17 @@ def layanan_create():
         except Exception as e:
             db.session.rollback()
             flash(f'Error: {str(e)}', 'danger')
+            import traceback
+            traceback.print_exc()
     
     return render_template('layanan/layanan_form.html', layanan=None, kategoris=kategoris)
 
-@layanan_bp.route('/<int:id>')
+
+@layanan_bp.route('/<string:layanan_id>')  # FIXED: parameter string bukan int
 @login_required
-def layanan_detail(id):
+def layanan_detail(layanan_id):
     """Detail layanan"""
-    layanan = Layanan.query.get_or_404(id)
+    layanan = Layanan.query.get_or_404(layanan_id)
     persyaratans = layanan.persyaratan.order_by(Persyaratan.urutan).all()
     sops = layanan.sop.order_by(SOP.urutan).all()
     
@@ -259,11 +261,11 @@ def layanan_detail(id):
                          sops=sops)
 
 
-@layanan_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
+@layanan_bp.route('/<string:layanan_id>/edit', methods=['GET', 'POST'])  # FIXED: string
 @login_required
-def layanan_edit(id):
+def layanan_edit(layanan_id):
     """Edit layanan"""
-    layanan = Layanan.query.get_or_404(id)
+    layanan = Layanan.query.get_or_404(layanan_id)
     kategoris = Kategori.query.order_by(Kategori.urutan).all()
     
     if request.method == 'POST':
@@ -277,15 +279,16 @@ def layanan_edit(id):
             layanan.is_active = request.form.get('is_active') == 'on'
             
             # Delete old persyaratan & sop
-            Persyaratan.query.filter_by(layanan_id=layanan.id).delete()
-            SOP.query.filter_by(layanan_id=layanan.id).delete()
+            # FIXED: Gunakan variabel layanan
+            Persyaratan.query.filter_by(layanan_id=layanan.layanan_id).delete()
+            SOP.query.filter_by(layanan_id=layanan.layanan_id).delete()
             
             # Add new persyaratan
             persyaratan_list = request.form.getlist('persyaratan[]')
             for idx, syarat in enumerate(persyaratan_list, 1):
                 if syarat.strip():
                     persyaratan = Persyaratan(
-                        layanan_id=layanan.id,
+                        layanan_id=layanan.layanan_id,  # FIXED
                         teks=syarat.strip(),
                         urutan=idx
                     )
@@ -296,7 +299,7 @@ def layanan_edit(id):
             for idx, sop_text in enumerate(sop_list, 1):
                 if sop_text.strip():
                     sop = SOP(
-                        layanan_id=layanan.id,
+                        layanan_id=layanan.layanan_id,  # FIXED
                         teks=sop_text.strip(),
                         urutan=idx
                     )
@@ -305,11 +308,13 @@ def layanan_edit(id):
             db.session.commit()
             
             flash(f'Layanan "{layanan.judul}" berhasil diupdate!', 'success')
-            return redirect(url_for('layanan.layanan_detail', id=layanan.id))
+            return redirect(url_for('layanan.layanan_detail', layanan_id=layanan.layanan_id))  # FIXED
             
         except Exception as e:
             db.session.rollback()
             flash(f'Error: {str(e)}', 'danger')
+            import traceback
+            traceback.print_exc()
     
     persyaratans = layanan.persyaratan.order_by(Persyaratan.urutan).all()
     sops = layanan.sop.order_by(SOP.urutan).all()
@@ -321,12 +326,12 @@ def layanan_edit(id):
                          sops=sops)
 
 
-@layanan_bp.route('/<int:id>/delete', methods=['POST'])
+@layanan_bp.route('/<string:layanan_id>/delete', methods=['POST'])  # FIXED: string
 @login_required
-def layanan_delete(id):
+def layanan_delete(layanan_id):
     """Delete layanan"""
     try:
-        layanan = Layanan.query.get_or_404(id)
+        layanan = Layanan.query.get_or_404(layanan_id)
         judul = layanan.judul
         
         # Cascade delete akan hapus persyaratan & sop otomatis
@@ -341,12 +346,12 @@ def layanan_delete(id):
     return redirect(url_for('layanan.layanan_list'))
 
 
-@layanan_bp.route('/<int:id>/toggle', methods=['POST'])
+@layanan_bp.route('/<string:layanan_id>/toggle', methods=['POST'])  # FIXED: string
 @login_required
-def layanan_toggle(id):
+def layanan_toggle(layanan_id):
     """Toggle active status"""
     try:
-        layanan = Layanan.query.get_or_404(id)
+        layanan = Layanan.query.get_or_404(layanan_id)
         layanan.is_active = not layanan.is_active
         db.session.commit()
         
@@ -379,13 +384,13 @@ def api_kategori_detail(id):
     })
 
 
-@layanan_bp.route('/api/layanan/<int:id>')
+@layanan_bp.route('/api/layanan/<string:layanan_id>')  # FIXED: string
 @login_required
-def api_layanan_detail(id):
+def api_layanan_detail(layanan_id):
     """Get layanan detail as JSON"""
-    layanan = Layanan.query.get_or_404(id)
+    layanan = Layanan.query.get_or_404(layanan_id)
     return jsonify({
-        'id': layanan.id,
+        'id': layanan.layanan_id,  # FIXED
         'layanan_id': layanan.layanan_id,
         'kategori': layanan.kategori.nama,
         'judul': layanan.judul,
